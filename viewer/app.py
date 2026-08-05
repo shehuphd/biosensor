@@ -64,6 +64,21 @@ app.jinja_env.globals["visible_params"] = lambda params: {
     k: v for k, v in (params or {}).items() if not k.startswith("_")
 }
 
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+def _asset_version() -> str:
+    """Cache-bust static/style.css by its mtime, so a stale browser cache
+    of an old build never masks a CSS fix behind a hard-refresh."""
+    try:
+        return str(int((_STATIC_DIR / "style.css").stat().st_mtime))
+    except OSError:
+        return "0"
+
+
+app.jinja_env.globals["asset_version"] = _asset_version
+app.jinja_env.globals["sparkline_path"] = lambda m: preview_svg_path(m, width=90, height=28)
+
 # file_id -> {"raw": bytes, "result": LoadResult, "mapping_confirmed": bool}.
 # In-memory, single-process, local-only — resets on restart by design.
 STORE: dict[str, dict] = {}
@@ -135,16 +150,20 @@ def index():
     return render_template("index.html", store=STORE, stats=_stats())
 
 
+def _upload_response_template() -> str:
+    return "partials/ledger_table.html" if request.form.get("view") == "ledger" else "partials/table.html"
+
+
 @app.route("/parse", methods=["POST"])
 def parse_single():
     file_storage = request.files.get("file")
     if file_storage is None:
-        return render_template("partials/table.html", store=STORE, stats=_stats()), 400
+        return render_template(_upload_response_template(), store=STORE, stats=_stats()), 400
 
     filename, raw, outcome = _parse_upload(file_storage)
     if raw is None:
         return render_template(
-            "partials/table.html",
+            _upload_response_template(),
             store=STORE,
             stats=_stats(),
             flash_error=f"{escape(filename)}: {escape(outcome)}",
@@ -152,7 +171,7 @@ def parse_single():
 
     file_id = uuid.uuid4().hex
     _store(file_id, raw, outcome)
-    return render_template("partials/table.html", store=STORE, stats=_stats(), selected_id=file_id)
+    return render_template(_upload_response_template(), store=STORE, stats=_stats(), selected_id=file_id)
 
 
 @app.route("/batch", methods=["POST"])
@@ -171,7 +190,7 @@ def batch_upload():
         _store(file_id, raw, outcome)
 
     flash_error = "; ".join(errors) if errors else None
-    return render_template("partials/table.html", store=STORE, stats=_stats(), flash_error=flash_error)
+    return render_template(_upload_response_template(), store=STORE, stats=_stats(), flash_error=flash_error)
 
 
 @app.route("/file/<file_id>")
@@ -232,6 +251,7 @@ def update_mapping(file_id: str):
         result=entry["result"],
         correctable=updated.instrument_source in CORRECTABLE_SOURCES,
         stats_oob=True,
+        stats=_stats(),
     )
 
 
@@ -255,6 +275,7 @@ def review_override(file_id: str):
         result=entry["result"],
         correctable=entry["result"].measurement.instrument_source in CORRECTABLE_SOURCES,
         stats_oob=True,
+        stats=_stats(),
     )
 
 
@@ -311,6 +332,7 @@ def edit_mapping(file_id: str):
         preview_path=None,
         selected=selected,
         other_count=other_count,
+        origin=request.args.get("origin", "panes"),
     )
 
 
@@ -360,6 +382,7 @@ def preview_mapping(file_id: str):
             1 for fid, e in STORE.items()
             if fid != file_id and e["result"].measurement.instrument_source == m.instrument_source
         ),
+        origin=request.form.get("origin", "panes"),
     )
 
 
@@ -403,6 +426,15 @@ def apply_mapping(file_id: str):
         target_entry["result"] = LoadResult(measurement=new_measurement, qc=qc)
 
     entry = STORE[file_id]
+    if request.form.get("origin") == "ledger":
+        return render_template(
+            "partials/ledger_mapping_apply_result.html",
+            file_id=file_id,
+            entry=entry,
+            result=entry["result"],
+            correctable=entry["result"].measurement.instrument_source in CORRECTABLE_SOURCES,
+            stats=_stats(),
+        )
     return render_template(
         "partials/mapping_apply_result.html",
         store=STORE,
@@ -437,7 +469,7 @@ def _defuse_csv_formulas(df):
     (e.g. "=CMD(...)") into a CSV a researcher later opens in Excel.
     """
     df = df.copy()
-    for column in df.select_dtypes(include="object").columns:
+    for column in df.select_dtypes(include=["object", "str"]).columns:
         df[column] = df[column].map(
             lambda v: ("'" + v) if isinstance(v, str) and v.startswith(_FORMULA_TRIGGER_CHARS) else v
         )
@@ -463,6 +495,27 @@ def export_one(file_id: str):
     df = to_dataframe(entry["result"].measurement)
     safe_name = secure_filename(entry["result"].measurement.source_filename) or file_id
     return _csv_response(df, f"{safe_name}.csv")
+
+
+@app.route("/ledger")
+def ledger():
+    return render_template("ledger.html", store=STORE, stats=_stats())
+
+
+@app.route("/ledger/file/<file_id>")
+def ledger_file_detail(file_id: str):
+    entry = STORE.get(file_id)
+    if entry is None:
+        return "<p class='error'>File not found (was it cleared by a server restart?)</p>", 404
+    correctable = entry["result"].measurement.instrument_source in CORRECTABLE_SOURCES
+    return render_template(
+        "partials/ledger_expand.html",
+        file_id=file_id,
+        entry=entry,
+        result=entry["result"],
+        correctable=correctable,
+        stats=_stats(),
+    )
 
 
 def main():

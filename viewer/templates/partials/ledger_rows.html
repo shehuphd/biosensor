@@ -1,0 +1,11 @@
+{% if flash_error %}
+<tr><td colspan="7"><p class="error">{{ flash_error }}</p></td></tr>
+{% endif %}
+
+{% if not store %}
+<tr><td colspan="7"><p class="files-empty">No files loaded yet.</p></td></tr>
+{% else %}
+{% for file_id, entry in store.items() %}
+{% include "partials/ledger_row_pair.html" %}
+{% endfor %}
+{% endif %}

@@ -13,10 +13,11 @@
   {% set m = entry.result.measurement %}
   {% set qc = entry.result.qc %}
   <div class="file-row {{ 'selected' if file_id == selected_id else '' }}"
+       data-file-id="{{ file_id }}"
        data-status="{{ qc.sanity_status }}"
        data-search="{{ (m.source_filename ~ ' ' ~ (m.sample_id or '') ~ ' ' ~ m.instrument_source)|lower }}"
        hx-get="/file/{{ file_id }}" hx-target="#plot-pane" hx-swap="innerHTML"
-       hx-trigger="click">
+       hx-trigger="click" onclick="selectedFileId='{{ file_id }}'">
     <span class="dot dot-{{ qc.sanity_status }}"></span>
     <div class="file-row-text">
       <span class="file-row-name">{{ m.source_filename }}</span>

@@ -1,0 +1,15 @@
+{% set selected_id = file_id %}
+{% set oob_row_only = true %}
+{# htmx can't parse a bare oob <tr> outside table context (it gets
+   foster-parented away by the browser's HTML parser); wrapping it in a
+   throwaway <table><tbody> gives it valid context to parse from. #}
+<table><tbody>
+{% include "partials/ledger_row_pair.html" %}
+</tbody></table>
+
+<div id="ledger-expand-content-{{ file_id }}" hx-swap-oob="true">
+  {% include "partials/ledger_expand.html" %}
+</div>
+
+<div id="topbar-stats" hx-swap-oob="true">{% include "partials/topbar_stats.html" %}</div>
+<span id="footer-mapping-count" class="right" hx-swap-oob="true">{% include "partials/footer_count.html" %}</span>

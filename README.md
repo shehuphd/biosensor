@@ -50,9 +50,15 @@ touching the measurement schema.
 
 ## Viewer
 
+Double-click the launcher for your platform (`launcher.command` on macOS,
+`launcher.sh` on Linux, `launcher.bat` on Windows) — each sets up the venv on
+first run, then starts the server and opens the browser:
+
 ```bash
-./launch.command
-# or: source .venv/bin/activate && python viewer/app.py
+./launcher.command      # macOS
+./launcher.sh           # Linux
+launcher.bat            # Windows
+# or manually: source .venv/bin/activate && python viewer/app.py
 ```
 
 Opens at `http://127.0.0.1:5050`. Three panes: file list on the left (live
@@ -103,6 +109,20 @@ input:
 Peak fitting, baseline correction, calibration curves, ML modeling,
 multi-user access, authentication, or cloud deployment. Four format readers
 is the v1 target, not exhaustive vendor coverage.
+
+## Sample data
+
+`sample_data/` has a synthetic ~27-file batch (all four formats) for
+exercising the viewer by hand: an IL6 immunosensor concentration series
+(CH Instruments, peak height scales with concentration), ferricyanide and
+blank references, Metrohm Nova DPV/CV, PalmSens sessions, a clean generic
+CSV, and two files that deliberately fail to parse (to exercise the batch
+error path). Point "Load a folder" at it. Regenerate with:
+
+```bash
+source .venv/bin/activate
+python scripts/generate_sample_data.py
+```
 
 ## Tests
 

@@ -1,0 +1,53 @@
+<div class="topbar">
+  <div class="topbar-brand">
+    <img class="topbar-logo" src="/static/logo.png" alt="" />
+    <span class="topbar-brand-text">
+      <span class="topbar-brand-name">Biosensor</span>
+      <span class="topbar-version">v0.3.0</span>
+    </span>
+  </div>
+  <div class="topbar-sep"></div>
+
+  <div class="topbar-stats" id="topbar-stats">
+    {% include "partials/topbar_stats.html" %}
+  </div>
+
+  <div class="topbar-actions">
+    <button class="icon-btn" title="Load a file" onclick="document.getElementById('single-file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+    </button>
+    <button class="icon-btn" title="Load a folder" onclick="document.getElementById('batch-file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
+    </button>
+    <div class="topbar-sep"></div>
+    <a class="icon-btn primary" title="Export batch CSV" href="/dataframe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+    </a>
+    <div class="topbar-sep"></div>
+    <a class="icon-btn" title="{{ 'Switch to Ledger view' if active_view == 'panes' else 'Switch to Panes view' }}" href="{{ '/ledger' if active_view == 'panes' else '/' }}">
+      {% if active_view == 'panes' %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      {% else %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
+      {% endif %}
+    </a>
+    <div class="topbar-sep"></div>
+    <button class="icon-btn" title="Settings" onclick="document.getElementById('settings-overlay').hidden = false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </button>
+  </div>
+</div>
+
+<div class="upload-forms">
+  <form id="single-form" hx-post="/parse" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
+        hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
+    <input type="hidden" name="view" value="{{ active_view }}" />
+    <input id="single-file-input" type="file" name="file" onchange="document.getElementById('single-form').requestSubmit()" />
+  </form>
+  <form id="batch-form" hx-post="/batch" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
+        hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
+    <input type="hidden" name="view" value="{{ active_view }}" />
+    <input id="batch-file-input" type="file" name="files" multiple webkitdirectory directory
+           onchange="document.getElementById('batch-form').requestSubmit()" />
+  </form>
+</div>

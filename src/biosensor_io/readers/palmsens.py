@@ -82,6 +82,13 @@ def _walk_for_series(node: Any, budget: list[int]) -> dict[str, list[float]]:
                 elif any(h in type_label for h in _CURRENT_TYPE_HINTS) and "current" not in found:
                     found["current"] = array
             for v in current.values():
+                # A node whose data we just extracted needn't be re-walked
+                # element-by-element — for a large array that would burn
+                # the whole node budget on numbers we've already read,
+                # starving out whatever sibling node (e.g. the other of
+                # potential/current) hasn't been found yet.
+                if v is values_node and array:
+                    continue
                 if isinstance(v, (dict, list)):
                     stack.append(v)
         elif isinstance(current, list):

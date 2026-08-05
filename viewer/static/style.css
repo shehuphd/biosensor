@@ -34,8 +34,9 @@ kbd{font-family:var(--font-mono)}
   background:var(--surface-card);
   border-bottom:1px solid var(--border-default);
 }
-.topbar-brand{display:flex;align-items:baseline;gap:var(--space-3)}
-.topbar-logo{width:22px;height:22px;border-radius:6px;display:block}
+.topbar-brand{display:flex;align-items:center;gap:var(--space-3)}
+.topbar-brand-text{display:flex;align-items:baseline;gap:var(--space-3)}
+.topbar-logo{width:22px;height:22px;border-radius:6px;display:block;flex:none}
 .topbar-brand-name{font-size:var(--text-md);font-weight:var(--weight-semibold);letter-spacing:var(--tracking-tight)}
 .topbar-version{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-tertiary)}
 .topbar-sep{width:1px;height:24px;background:var(--border-default)}
@@ -272,3 +273,49 @@ kbd{font-family:var(--font-mono)}
   .app-shell{margin:0;border-radius:0}
   #left-pane, #right-pane{flex-basis:240px}
 }
+
+/* ---------- settings: default view + hints ---------- */
+.settings-radio-group{display:flex;flex-direction:column;gap:var(--space-3)}
+.settings-radio{display:flex;align-items:center;gap:var(--space-3);font-size:var(--text-sm);color:var(--text-primary);cursor:pointer}
+.settings-radio input{accent-color:var(--accent-primary);width:15px;height:15px}
+.settings-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);font-size:var(--text-sm);color:var(--text-primary);cursor:pointer}
+.settings-toggle-row input{accent-color:var(--accent-primary);width:16px;height:16px}
+.settings-link-row{display:flex;justify-content:flex-end}
+
+/* ---------- keyboard hints bar ---------- */
+.keyboard-hints-bar{
+  display:flex;flex-wrap:wrap;gap:6px var(--space-5);padding:var(--space-3) var(--space-5);
+  border-top:1px solid var(--border-subtle);background:var(--surface-sunken);font-size:var(--text-xs);color:var(--text-secondary);
+}
+.hint-item{display:inline-flex;align-items:center;gap:5px}
+.hint-item kbd{
+  font-family:var(--font-mono);font-size:10.5px;border:1px solid var(--border-default);
+  background:var(--surface-card);border-radius:3px;padding:1px 5px;
+}
+
+/* ---------- ledger view ---------- */
+.ledger-shell{padding:var(--space-6) var(--space-7);flex:1;min-height:0;display:flex;flex-direction:column}
+.ledger-toolbar{display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-5);flex-wrap:wrap}
+.ledger-toolbar .filter-input{max-width:340px}
+.ledger-count{font-size:var(--text-xs);color:var(--text-tertiary);margin-left:auto}
+.ledger-table-scroll{flex:1;min-height:0;overflow:auto;border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--surface-card)}
+.ledger-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+.ledger-table thead th{
+  position:sticky;top:0;text-align:left;padding:var(--space-3) var(--space-4);background:var(--surface-sunken);
+  color:var(--text-tertiary);font-size:var(--text-xs);letter-spacing:var(--tracking-wide);text-transform:uppercase;
+  border-bottom:1px solid var(--border-default);font-weight:var(--weight-medium);white-space:nowrap;
+}
+.ledger-row{cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+.ledger-row:hover{background:var(--surface-sunken)}
+.ledger-row.expanded{background:var(--state-success-bg)}
+.ledger-row td{padding:var(--space-3) var(--space-4);vertical-align:top;font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary)}
+.ledger-row td:first-child{color:var(--text-primary);white-space:nowrap}
+.ledger-subtitle{font-family:var(--font-sans);font-size:var(--text-xs);color:var(--text-tertiary);margin-top:2px}
+.ledger-sparkline{display:block;width:90px;height:28px}
+.ledger-expand-row td{padding:0;background:var(--surface-app)}
+.ledger-detail{padding:var(--space-5) var(--space-6);border-top:1px solid var(--border-default);border-bottom:1px solid var(--border-default)}
+.ledger-detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)}
+.ledger-detail-title{font-family:var(--font-mono);font-size:var(--text-base);font-weight:var(--weight-medium);color:var(--text-primary)}
+.ledger-view-block{margin-bottom:var(--space-5)}
+.ledger-columns{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8)}
+.ledger-col{display:flex;flex-direction:column;gap:var(--space-4)}

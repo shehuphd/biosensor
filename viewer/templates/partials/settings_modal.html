@@ -1,0 +1,37 @@
+<div class="overlay" id="settings-overlay" hidden onclick="if(event.target===this) this.hidden = true">
+  <div class="settings-modal">
+    <div class="settings-modal-header">Settings</div>
+    <div class="settings-modal-body">
+      <div class="settings-group">
+        <span class="settings-label">Appearance</span>
+        <div class="seg-control" id="theme-control">
+          <button type="button" data-theme="light" onclick="setTheme('light')">Light</button>
+          <button type="button" data-theme="dark" onclick="setTheme('dark')">Dark</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <span class="settings-label">Default view</span>
+        <div class="settings-radio-group">
+          <label class="settings-radio">
+            <input type="radio" name="default-view" id="view-panes" onchange="setDefaultView('panes')" />
+            Panes (files &middot; curve &middot; parse record)
+          </label>
+          <label class="settings-radio">
+            <input type="radio" name="default-view" id="view-ledger" onchange="setDefaultView('ledger')" />
+            Ledger (scrollable table)
+          </label>
+        </div>
+      </div>
+
+      <label class="settings-toggle-row">
+        <span>Show keyboard shortcut hints</span>
+        <input type="checkbox" id="hints-toggle" onchange="setShowHints(this.checked)" />
+      </label>
+    </div>
+    <div class="settings-modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('settings-overlay').hidden = true">Close</button>
+      <button class="btn btn-primary" onclick="document.getElementById('settings-overlay').hidden = true">Save</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,63 @@
+<script>
+  function applyTheme(theme) {
+    const shell = document.getElementById('app-shell');
+    shell.classList.toggle('dark', theme === 'dark');
+    document.querySelectorAll('#theme-control button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+  }
+  function setTheme(theme) {
+    localStorage.setItem('biosensor-theme', theme);
+    applyTheme(theme);
+  }
+  applyTheme(window.__biosensorTheme || 'light');
+
+  function setDefaultView(view) {
+    localStorage.setItem('biosensor-default-view', view);
+  }
+  function setShowHints(show) {
+    localStorage.setItem('biosensor-show-hints', show ? 'true' : 'false');
+    applyHintsVisibility(show);
+  }
+  function applyHintsVisibility(show) {
+    const bar = document.getElementById('keyboard-hints-bar');
+    if (bar) bar.hidden = !show;
+  }
+  function initSettingsControls() {
+    const view = localStorage.getItem('biosensor-default-view') || 'panes';
+    const radio = document.getElementById(view === 'ledger' ? 'view-ledger' : 'view-panes');
+    if (radio) radio.checked = true;
+    const showHints = localStorage.getItem('biosensor-show-hints') !== 'false';
+    const hintsToggle = document.getElementById('hints-toggle');
+    if (hintsToggle) hintsToggle.checked = showHints;
+    applyHintsVisibility(showHints);
+  }
+  initSettingsControls();
+
+  function renderAllPlots() {
+    // Deferred a frame: right after an (OOB) swap the browser hasn't
+    // committed layout for the new nodes yet, so Plotly's container
+    // measurement can read a stale/unbounded height and render huge.
+    window.requestAnimationFrame(() => {
+      document.querySelectorAll('.plot-data-json').forEach(el => {
+        const target = document.getElementById(el.dataset.target);
+        if (!target) return;
+        try {
+          const payload = JSON.parse(el.textContent);
+          Plotly.newPlot(target, payload.data, payload.layout, {responsive: true});
+        } catch (e) {
+          console.error('plot render failed', e);
+        }
+      });
+    });
+  }
+  document.body.addEventListener('htmx:afterSwap', renderAllPlots);
+
+  function openMappingModal(fileId) {
+    const origin = window.__biosensorView || 'panes';
+    htmx.ajax('GET', `/file/${fileId}/mapping/edit?origin=${origin}`, {target: '#modal-root', swap: 'innerHTML'});
+  }
+  function closeMappingModal() {
+    document.getElementById('modal-root').innerHTML = '';
+  }
+</script>

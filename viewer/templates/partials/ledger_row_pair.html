@@ -1,0 +1,25 @@
+{% set m = entry.result.measurement %}
+{% set qc = entry.result.qc %}
+<tr class="ledger-row {{ 'expanded' if file_id == selected_id else '' }}"
+    id="ledger-row-{{ file_id }}"
+    {% if oob_row_only %}hx-swap-oob="true"{% endif %}
+    data-file-id="{{ file_id }}"
+    data-status="{{ qc.sanity_status }}"
+    data-search="{{ (m.source_filename ~ ' ' ~ (m.sample_id or '') ~ ' ' ~ m.instrument_source)|lower }}"
+    onclick="toggleLedgerRow('{{ file_id }}')">
+  <td>
+    <span class="dot dot-{{ qc.sanity_status }}"></span> {{ m.source_filename }}
+    <div class="ledger-subtitle">{{ qc.sanity_reason or "parsed cleanly" }}</div>
+  </td>
+  <td>{{ m.instrument_source }}</td>
+  <td>{{ m.technique or "—" }}</td>
+  <td>{{ m.sample_id or "—" }}</td>
+  <td>{{ (m.analyte_concentration|string ~ " " ~ (m.concentration_unit or "")) if m.analyte_concentration is not none else "—" }}</td>
+  <td>{{ "{:,}".format(m.n_points) }}</td>
+  <td><svg viewBox="0 0 90 28" class="ledger-sparkline"><path d="{{ sparkline_path(m) }}" fill="none" stroke="var(--brand-500)" stroke-width="1.5"></path></svg></td>
+</tr>
+{% if not oob_row_only %}
+<tr class="ledger-expand-row" id="ledger-expand-{{ file_id }}" hidden>
+  <td colspan="7"><div id="ledger-expand-content-{{ file_id }}"></div></td>
+</tr>
+{% endif %}

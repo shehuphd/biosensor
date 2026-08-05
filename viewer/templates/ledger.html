@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Biosensor — Ledger</title>
+  <link rel="icon" href="/static/logo.png" />
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version() }}" />
+  <script>
+    (function () {
+      window.__biosensorView = 'ledger';
+      window.__biosensorTheme = localStorage.getItem('biosensor-theme') || 'light';
+    })();
+  </script>
+</head>
+<body>
+  {% set active_view = 'ledger' %}
+  {% set upload_target = 'ledger-tbody' %}
+  <div class="app-shell" id="app-shell">
+    {% include "partials/topbar.html" %}
+    {% include "partials/settings_modal.html" %}
+
+    <div class="ledger-shell">
+      <div class="ledger-toolbar">
+        <input class="filter-input" type="text" placeholder="Search files, samples, instruments" oninput="filterLedger(this.value)" />
+        <div class="status-tabs" id="status-tabs">
+          <button type="button" class="active" data-filter="all" onclick="setLedgerStatusFilter('all')">all</button>
+          <button type="button" data-filter="ok" onclick="setLedgerStatusFilter('ok')">ok</button>
+          <button type="button" data-filter="flagged" onclick="setLedgerStatusFilter('flagged')">flagged</button>
+          <button type="button" data-filter="failed" onclick="setLedgerStatusFilter('failed')">failed</button>
+        </div>
+        <span class="ledger-count" id="ledger-count">{{ store|length }} of {{ store|length }} files</span>
+      </div>
+
+      <div class="ledger-table-scroll">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Instrument</th>
+              <th>Tech</th>
+              <th>Sample</th>
+              <th>Conc.</th>
+              <th>Points</th>
+              <th>Curve</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-tbody">
+            {% include "partials/ledger_rows.html" %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>Session is in memory only — it resets when the server restarts.</span>
+      <span class="right" id="footer-mapping-count">
+        {% include "partials/footer_count.html" %}
+      </span>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+
+  {% include "partials/scripts_common.html" %}
+  <script>
+    function toggleLedgerRow(fileId) {
+      const row = document.getElementById(`ledger-expand-${fileId}`);
+      const content = document.getElementById(`ledger-expand-content-${fileId}`);
+      const dataRow = document.getElementById(`ledger-row-${fileId}`);
+      if (!row.hidden) {
+        row.hidden = true;
+        content.innerHTML = '';
+        if (dataRow) dataRow.classList.remove('expanded');
+        return;
+      }
+      document.querySelectorAll('.ledger-expand-row').forEach(r => {
+        if (r !== row && !r.hidden) {
+          r.hidden = true;
+          r.querySelector('div').innerHTML = '';
+        }
+      });
+      document.querySelectorAll('.ledger-row').forEach(r => r.classList.remove('expanded'));
+      row.hidden = false;
+      if (dataRow) dataRow.classList.add('expanded');
+      htmx.ajax('GET', `/ledger/file/${fileId}`, {target: `#ledger-expand-content-${fileId}`, swap: 'innerHTML'});
+    }
+
+    function showLedgerView(fileId, view) {
+      const container = document.getElementById(`ledger-expand-content-${fileId}`);
+      if (!container) return;
+      container.querySelectorAll('.detail-view').forEach(el => { el.hidden = el.dataset.view !== view; });
+      container.querySelectorAll('.view-tabs button').forEach(btn => { btn.classList.toggle('active', btn.dataset.view === view); });
+    }
+
+    let ledgerStatusFilter = 'all';
+    function setLedgerStatusFilter(filter) {
+      ledgerStatusFilter = filter;
+      document.querySelectorAll('#status-tabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      applyLedgerFilters();
+    }
+    let ledgerFilterText = '';
+    function filterLedger(text) {
+      ledgerFilterText = text.toLowerCase();
+      applyLedgerFilters();
+    }
+    function applyLedgerFilters() {
+      const rows = document.querySelectorAll('.ledger-row');
+      let visible = 0;
+      let total = 0;
+      rows.forEach(row => {
+        total++;
+        const matchesStatus = ledgerStatusFilter === 'all' || row.dataset.status === ledgerStatusFilter;
+        const matchesText = !ledgerFilterText || row.dataset.search.includes(ledgerFilterText);
+        const show = matchesStatus && matchesText;
+        row.style.display = show ? '' : 'none';
+        const expandRow = document.getElementById(`ledger-expand-${row.dataset.fileId}`);
+        if (!show && expandRow) expandRow.style.display = 'none';
+        else if (expandRow) expandRow.style.display = '';
+        if (show) visible++;
+      });
+      const countEl = document.getElementById('ledger-count');
+      if (countEl) countEl.textContent = `${visible} of ${total} files`;
+    }
+    document.body.addEventListener('htmx:afterSwap', applyLedgerFilters);
+  </script>
+</body>
+</html>
