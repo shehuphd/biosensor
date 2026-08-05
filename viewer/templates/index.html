@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Biosensor</title>
+  <link rel="icon" href="/static/logo.png" />
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script>
+    // Applied before paint to avoid a light/dark flash.
+    (function () {
+      window.__biosensorTheme = localStorage.getItem('biosensor-theme') || 'light';
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <div class="topbar">
+      <div class="topbar-brand">
+        <img class="topbar-logo" src="/static/logo.png" alt="" />
+        <span class="topbar-brand-name">Biosensor</span>
+        <span class="topbar-version">v0.2.0</span>
+      </div>
+      <div class="topbar-sep"></div>
+
+      <div class="topbar-stats" id="topbar-stats">
+        {% include "partials/topbar_stats.html" %}
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" title="Load a file" onclick="document.getElementById('single-file-input').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </button>
+        <button class="icon-btn" title="Load a folder" onclick="document.getElementById('batch-file-input').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
+        </button>
+        <div class="topbar-sep"></div>
+        <a class="icon-btn primary" title="Export batch CSV" href="/dataframe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </a>
+        <div class="topbar-sep"></div>
+        <button class="icon-btn" title="Settings" onclick="document.getElementById('settings-overlay').hidden = false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="upload-forms">
+      <form id="single-form" hx-post="/parse" hx-target="#batch-table" hx-swap="innerHTML"
+            hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
+        <input id="single-file-input" type="file" name="file" onchange="document.getElementById('single-form').requestSubmit()" />
+      </form>
+      <form id="batch-form" hx-post="/batch" hx-target="#batch-table" hx-swap="innerHTML"
+            hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
+        <input id="batch-file-input" type="file" name="files" multiple webkitdirectory directory
+               onchange="document.getElementById('batch-form').requestSubmit()" />
+      </form>
+    </div>
+
+    <div class="overlay" id="settings-overlay" hidden onclick="if(event.target===this) this.hidden = true">
+      <div class="settings-modal">
+        <div class="settings-modal-header">Settings</div>
+        <div class="settings-modal-body">
+          <div class="settings-group">
+            <span class="settings-label">Appearance</span>
+            <div class="seg-control" id="theme-control">
+              <button type="button" data-theme="light" onclick="setTheme('light')">Light</button>
+              <button type="button" data-theme="dark" onclick="setTheme('dark')">Dark</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-modal-footer">
+          <button class="btn btn-ghost" onclick="document.getElementById('settings-overlay').hidden = true">Close</button>
+          <button class="btn btn-primary" onclick="document.getElementById('settings-overlay').hidden = true">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div id="left-pane">
+        <div class="pane-files" id="pane-files">
+          <div class="pane-header">
+            <span class="pane-header-title">Files</span>
+            <button class="rail-toggle" title="Collapse" onclick="collapsePane('left')">&lsaquo;</button>
+          </div>
+          <div class="files-controls">
+            <input class="filter-input" type="text" placeholder="Filter files or samples" oninput="filterFiles(this.value)" />
+            <div class="status-tabs" id="status-tabs">
+              <button type="button" class="active" data-filter="all" onclick="setStatusFilter('all')">all</button>
+              <button type="button" data-filter="ok" onclick="setStatusFilter('ok')">ok</button>
+              <button type="button" data-filter="flagged" onclick="setStatusFilter('flagged')">flagged</button>
+              <button type="button" data-filter="failed" onclick="setStatusFilter('failed')">failed</button>
+            </div>
+          </div>
+          <div id="batch-table">
+            {% include "partials/table_body.html" %}
+          </div>
+        </div>
+      </div>
+
+      <section class="pane-center">
+        <div id="plot-pane">
+          <p class="empty-state">Select a file from the list to view its curve.</p>
+        </div>
+      </section>
+
+      <div id="right-pane">
+        <div class="pane-record" id="pane-record">
+          <div class="pane-header">
+            <button class="rail-toggle" title="Collapse" onclick="collapsePane('right')">&rsaquo;</button>
+            <span class="pane-header-title">Parse record</span>
+          </div>
+          <div id="meta-pane">
+            <p class="empty-state">Nothing selected yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>Session is in memory only — it resets when the server restarts.</span>
+      <span class="right" id="footer-mapping-count">
+        {% include "partials/footer_count.html" %}
+      </span>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+
+  <script>
+    function applyTheme(theme) {
+      const shell = document.getElementById('app-shell');
+      shell.classList.toggle('dark', theme === 'dark');
+      document.querySelectorAll('#theme-control button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+      });
+    }
+    function setTheme(theme) {
+      localStorage.setItem('biosensor-theme', theme);
+      applyTheme(theme);
+    }
+    applyTheme(window.__biosensorTheme || 'light');
+
+    function renderActivePlot() {
+      const el = document.getElementById('plot-data');
+      if (!el) return;
+      // Deferred a frame: right after an (OOB) swap the browser hasn't
+      // committed layout for the new nodes yet, so Plotly's container
+      // measurement can read a stale/unbounded height and render huge.
+      window.requestAnimationFrame(() => {
+        const target = document.getElementById('plot-div');
+        if (!target) return;
+        try {
+          const payload = JSON.parse(el.textContent);
+          Plotly.newPlot(target, payload.data, payload.layout, {responsive: true});
+        } catch (e) {
+          console.error('plot render failed', e);
+        }
+      });
+    }
+    document.body.addEventListener('htmx:afterSwap', renderActivePlot);
+
+    function showView(view) {
+      document.querySelectorAll('.detail-view').forEach(el => {
+        el.hidden = el.id !== `${view}-view`;
+      });
+      document.querySelectorAll('.view-tabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
+      if (view === 'plot') {
+        window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+    }
+
+    let statusFilter = 'all';
+    function setStatusFilter(filter) {
+      statusFilter = filter;
+      document.querySelectorAll('#status-tabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      applyFileFilters();
+    }
+    let filterText = '';
+    function filterFiles(text) {
+      filterText = text.toLowerCase();
+      applyFileFilters();
+    }
+    function applyFileFilters() {
+      const rows = document.querySelectorAll('.file-row');
+      let visible = 0;
+      rows.forEach(row => {
+        const matchesStatus = statusFilter === 'all' || row.dataset.status === statusFilter;
+        const matchesText = !filterText || row.dataset.search.includes(filterText);
+        const show = matchesStatus && matchesText;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      const emptyMsg = document.getElementById('files-empty-filtered');
+      if (emptyMsg) emptyMsg.hidden = visible !== 0;
+    }
+    document.body.addEventListener('htmx:afterSwap', applyFileFilters);
+
+    function collapsePane(side) {
+      const paneId = side === 'left' ? 'left-pane' : 'right-pane';
+      const pane = document.getElementById(paneId);
+      const collapsed = pane.classList.contains('collapsed');
+      if (!collapsed) {
+        pane.classList.add('collapsed');
+        pane.innerHTML = `<div class="rail rail-${side}"><button class="rail-toggle" onclick="collapsePane('${side}')">${side === 'left' ? '&rsaquo;' : '&lsaquo;'}</button><span class="rail-label">${side === 'left' ? 'Files' : 'Parse record'}</span></div>`;
+      } else {
+        window.location.reload();
+      }
+    }
+
+    function openMappingModal(fileId) {
+      htmx.ajax('GET', `/file/${fileId}/mapping/edit`, {target: '#modal-root', swap: 'innerHTML'});
+    }
+    function closeMappingModal() {
+      document.getElementById('modal-root').innerHTML = '';
+    }
+  </script>
+</body>
+</html>

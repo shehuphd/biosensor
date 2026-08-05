@@ -1,0 +1,35 @@
+/* Dark-mode token overrides used across the Biosensor viewer redesign (options 1b, 1f, 1g, 1h).
+   Apply the `.dark` class to a container alongside the base design-system token files
+   (colors.css etc.) to re-theme it. Graphite dark (21-29% lightness), not near-black. */
+.dark{
+  --surface-app:oklch(21% 0.009 145);
+  --surface-canvas:oklch(24% 0.01 145);
+  --surface-card:oklch(25% 0.01 145);
+  --surface-sunken:oklch(29% 0.011 145);
+  --surface-overlay:oklch(27% 0.01 145);
+  --border-subtle:oklch(31% 0.011 145);
+  --border-default:oklch(42% 0.013 145);
+  --border-strong:oklch(50% 0.013 145);
+  --text-primary:oklch(96% 0.004 145);
+  --text-secondary:oklch(80% 0.008 145);
+  --text-tertiary:oklch(67% 0.011 145);
+  --text-inverse:oklch(97% 0.003 145);
+  --text-link:var(--brand-300);
+  --text-link-hover:var(--brand-200);
+  --accent-primary:var(--brand-600);
+  --accent-primary-hover:var(--brand-500);
+  --state-success-bg:oklch(30% 0.045 152);
+  --state-success-fg:oklch(84% 0.08 152);
+  --state-success-border:oklch(45% 0.08 152);
+  --state-warning-bg:oklch(32% 0.055 78);
+  --state-warning-fg:oklch(87% 0.09 85);
+  --state-warning-border:oklch(50% 0.09 78);
+  --state-danger-bg:oklch(31% 0.065 27);
+  --state-danger-fg:oklch(83% 0.09 25);
+  --state-danger-border:oklch(48% 0.12 27);
+  --state-info-bg:oklch(30% 0.045 240);
+  --state-info-fg:oklch(84% 0.07 240);
+  --gray-150:oklch(33% 0.011 145);
+  --gray-700:oklch(84% 0.008 145);
+  --gray-0:oklch(20% 0.009 145);
+}

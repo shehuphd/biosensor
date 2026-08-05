@@ -1,0 +1,115 @@
+<div class="modal-backdrop" onclick="if(event.target===this) closeMappingModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span class="modal-title-text">Correct column mapping</span>
+        <span class="modal-subtitle">{{ filename }} &middot; {{ instrument_source }} &middot; {{ "{:,}".format(table.total_rows) }} rows</span>
+      </div>
+      <button type="button" class="modal-close" onclick="closeMappingModal()">&times;</button>
+    </div>
+
+    <div class="modal-note">
+      <p><strong>Quality check {{ qc.sanity_status }}.</strong>
+        {{ qc.sanity_reason or "Pick which raw columns hold potential and current below, then apply the mapping." }}</p>
+    </div>
+
+    <form id="mapping-form-{{ file_id }}"
+          hx-post="/file/{{ file_id }}/mapping/preview" hx-trigger="change"
+          hx-target="#modal-root" hx-swap="innerHTML">
+      <div class="modal-body">
+        <div>
+          <span class="card-eyebrow">First {{ table.preview_rows|length }} rows, as read</span>
+          <div class="raw-table">
+            {% for row in table.preview_rows %}
+            <div class="raw-line">
+              <span class="n">{{ loop.index }}</span>
+              {% for cell in row %}
+              <span class="raw-cell {{ 'col-potential' if loop.index0 == selected.potential_col else 'col-current' if loop.index0 == selected.current_col else '' }}">{{ cell }}</span>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="raw-legend">
+            <span><span class="sw" style="background:var(--brand-400)"></span>potential_v</span>
+            <span><span class="sw" style="background:var(--slate-300)"></span>current_a</span>
+            <span><span class="sw" style="background:var(--gray-400)"></span>ignored</span>
+          </div>
+        </div>
+
+        <div class="modal-fields">
+          <div class="field-group">
+            <label class="field-label" for="potential_col-{{ file_id }}">potential_v</label>
+            <select class="field-input" id="potential_col-{{ file_id }}" name="potential_col">
+              {% for i in range(table.n_cols) %}
+              <option value="{{ i }}" {{ "selected" if i == selected.potential_col }}>col {{ i + 1 }}{% if table.preview_rows and table.preview_rows[0]|length > i %} &middot; "{{ table.preview_rows[0][i] }}"{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="current_col-{{ file_id }}">current_a</label>
+            <select class="field-input" id="current_col-{{ file_id }}" name="current_col">
+              {% for i in range(table.n_cols) %}
+              <option value="{{ i }}" {{ "selected" if i == selected.current_col }}>col {{ i + 1 }}{% if table.preview_rows and table.preview_rows[0]|length > i %} &middot; "{{ table.preview_rows[0][i] }}"{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="cycle_col-{{ file_id }}">cycle_number (optional)</label>
+            <select class="field-input" id="cycle_col-{{ file_id }}" name="cycle_col">
+              <option value="none" {{ "selected" if selected.cycle_col == "none" }}>not present</option>
+              {% for i in range(table.n_cols) %}
+              <option value="{{ i }}" {{ "selected" if selected.cycle_col == i|string }}>col {{ i + 1 }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="potential_unit-{{ file_id }}">Potential unit</label>
+              <select class="field-input" id="potential_unit-{{ file_id }}" name="potential_unit">
+                {% for unit in potential_units %}
+                <option value="{{ unit }}" {{ "selected" if unit == selected.potential_unit }}>{{ unit }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="current_unit-{{ file_id }}">Current unit</label>
+              <select class="field-input" id="current_unit-{{ file_id }}" name="current_unit">
+                {% for unit in current_units %}
+                <option value="{{ unit }}" {{ "selected" if unit == selected.current_unit }}>{{ unit }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-preview">
+            <div class="modal-preview-head">
+              <span class="card-eyebrow">Preview</span>
+              {% if preview_path %}
+              <span class="mapping-fields">quality check would {{ "pass" if would_pass else "still fail" }}</span>
+              {% endif %}
+            </div>
+            <div class="modal-preview-box">
+              <svg viewBox="0 0 320 140" preserveAspectRatio="none" style="width:100%;height:130px;display:block">
+                {% if preview_path %}<path d="{{ preview_path }}" fill="none" stroke="var(--brand-500)" stroke-width="1.8"></path>{% endif %}
+              </svg>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-primary btn-md"
+                    hx-post="/file/{{ file_id }}/mapping/apply" hx-include="closest form"
+                    hx-target="#modal-root" hx-swap="innerHTML">Apply mapping</button>
+            <button type="button" class="btn btn-ghost btn-md" onclick="closeMappingModal()">Cancel</button>
+          </div>
+          {% if other_count %}
+          <label class="modal-checkbox">
+            <input type="checkbox" name="apply_to_batch" />
+            Apply to the {{ other_count }} other {{ instrument_source }} file{{ "s" if other_count != 1 else "" }} in this batch
+          </label>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

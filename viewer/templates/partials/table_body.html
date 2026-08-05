@@ -1,0 +1,34 @@
+{% if flash_error %}
+<p class="error">{{ flash_error }}</p>
+{% endif %}
+
+{% if not store %}
+<p class="files-empty">No files loaded yet.</p>
+{% else %}
+<div class="files-count-row" style="padding:8px 16px 0">
+  <span>{{ store|length }} of {{ store|length }} files</span>
+</div>
+<div class="file-list">
+  {% for file_id, entry in store.items() %}
+  {% set m = entry.result.measurement %}
+  {% set qc = entry.result.qc %}
+  <div class="file-row {{ 'selected' if file_id == selected_id else '' }}"
+       data-status="{{ qc.sanity_status }}"
+       data-search="{{ (m.source_filename ~ ' ' ~ (m.sample_id or '') ~ ' ' ~ m.instrument_source)|lower }}"
+       hx-get="/file/{{ file_id }}" hx-target="#plot-pane" hx-swap="innerHTML"
+       hx-trigger="click">
+    <span class="dot dot-{{ qc.sanity_status }}"></span>
+    <div class="file-row-text">
+      <span class="file-row-name">{{ m.source_filename }}</span>
+      <span class="file-row-meta">{{ m.instrument_source }} &middot; {{ m.n_points }} pts &middot; {{ qc.sanity_reason or "parsed cleanly" }}</span>
+    </div>
+    <button type="button" class="file-row-remove"
+            hx-delete="/file/{{ file_id }}"
+            hx-target="#batch-table" hx-swap="innerHTML"
+            hx-confirm="Remove {{ m.source_filename }} from this session?"
+            onclick="event.stopPropagation()">&times;</button>
+  </div>
+  {% endfor %}
+  <p class="files-empty" id="files-empty-filtered" hidden>No file in this session matches that filter.</p>
+</div>
+{% endif %}

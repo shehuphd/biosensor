@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biosensor-io"
+version = "0.2.0"
+description = "Parse electrochemical instrument exports (CH Instruments, Metrohm Nova, PalmSens, CSV) into one tidy dataframe schema, with a local viewer to sanity-check the parse."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mo Shehu" }]
+dependencies = [
+    "pandas>=2.0",
+    "flask>=3.0",
+    "traceact>=0.13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,163 @@
+{% set m = result.measurement %}
+{% set qc = result.qc %}
+{% set mapping = m.technique_params.get("_column_mapping") if m.technique_params else None %}
+
+<div id="plot-pane"{% if plot_oob %} hx-swap-oob="true"{% endif %}>
+  <div class="center-header">
+    <div class="center-title-block">
+      <a class="center-filename" href="#" title="Reveal in file manager (not wired up in this local demo)">{{ m.source_filename }}</a>
+      <div class="center-tags">
+        {% if m.technique %}<span class="badge badge-brand">{{ m.technique }}</span>{% endif %}
+        <span class="badge badge-neutral">{{ m.instrument_source }}</span>
+        {% if m.scan_rate_v_s is not none %}<span class="badge badge-neutral">{{ m.scan_rate_v_s }} V/s</span>{% endif %}
+        <span class="badge badge-neutral">
+          {% if m.cycle_number %}{{ m.cycle_number|unique|list|length }} cycles &middot; {% endif %}{{ "{:,}".format(m.n_points) }} pts
+        </span>
+        <span class="qc-chip"><span class="dot dot-{{ qc.sanity_status }}"></span>QC {{ qc.sanity_status }}</span>
+      </div>
+    </div>
+    <div class="view-tabs">
+      <button type="button" class="active" data-view="plot" onclick="showView('plot')">Curve</button>
+      <button type="button" data-view="table" onclick="showView('table')">Dataframe</button>
+      <button type="button" data-view="overlay" onclick="showView('overlay')">Overlay</button>
+    </div>
+  </div>
+
+  <div id="plot-view" class="detail-view card">
+    <div class="card-header">
+      <span class="card-eyebrow">Current vs potential</span>
+    </div>
+    <div id="plot-div"></div>
+    <script id="plot-data" type="application/json">
+      {{ plot_json(m) | tojson }}
+    </script>
+  </div>
+
+  <div id="table-view" class="detail-view card" hidden>
+    {% set preview = dataframe_preview(m) %}
+    <div class="card-header">
+      <span class="card-eyebrow">Showing {{ preview.shown_rows }} of {{ preview.total_rows }} rows</span>
+      <a class="export-link" href="/file/{{ file_id }}/dataframe">export this file as CSV</a>
+    </div>
+    <div class="df-scroll">
+      <table class="df-table">
+        <thead>
+          <tr>{% for col in preview.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in preview.rows %}
+          <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="overlay-view" class="detail-view card" hidden>
+    <div class="card-header">
+      <span class="card-eyebrow">Overlay — same sample, by concentration</span>
+      <span class="future-note">future state — not in v1</span>
+    </div>
+    <p class="empty-state">Overlay comparison across concentrations isn't built yet.</p>
+  </div>
+
+  {% if mapping %}
+  <div class="mapping-bar">
+    <div class="mapping-bar-text">
+      <span class="card-eyebrow">Column mapping — inferred from header</span>
+      <div class="mapping-fields">
+        {% for field, source in mapping.items() %}
+        <span>{{ field }} <span class="arrow">&larr;</span> <span class="val">{{ source }}</span></span>
+        {% endfor %}
+      </div>
+    </div>
+    {% if correctable %}
+    <button type="button" class="btn btn-secondary" onclick="openMappingModal('{{ file_id }}')">Correct mapping</button>
+    {% endif %}
+  </div>
+  {% elif correctable %}
+  <div class="mapping-bar">
+    <div class="mapping-bar-text">
+      <span class="card-eyebrow">Column mapping</span>
+      <span class="mapping-fields">Not tracked for this format.</span>
+    </div>
+    <button type="button" class="btn btn-secondary" onclick="openMappingModal('{{ file_id }}')">Correct mapping</button>
+  </div>
+  {% endif %}
+</div>
+
+<div id="meta-pane" hx-swap-oob="true">
+  {% if mapping_error %}
+  <p class="error">{{ mapping_error }}</p>
+  {% endif %}
+
+  <div class="record-block">
+    <div class="qc-row">
+      <span class="dot dot-{{ qc.sanity_status }}"></span>
+      <span class="qc-label">Quality check &mdash;
+        {% if qc.sanity_status == "ok" %}passed{% elif qc.sanity_status == "flagged" %}flagged{% else %}failed{% endif %}
+      </span>
+      <button type="button" class="qc-change" onclick="document.getElementById('qc-override-{{ file_id }}').hidden = false">change</button>
+    </div>
+    <p class="qc-desc">{{ qc.sanity_reason or "Return sweep present and a peak was detected in the current trace. All points finite." }}</p>
+    {% if qc.reviewed_by %}<p class="qc-desc">Reviewed by: {{ qc.reviewed_by }}</p>{% endif %}
+
+    <form id="qc-override-{{ file_id }}" hidden hx-post="/file/{{ file_id }}/review" hx-target="#plot-pane" hx-swap="innerHTML" class="qc-override">
+      <input type="hidden" name="reviewed_by" value="manual" />
+      <button type="submit" class="btn btn-primary" name="sanity_status" value="ok">Accept as ok</button>
+      <button type="submit" class="link-btn" name="sanity_status" value="flagged">Keep flagged</button>
+      <button type="submit" class="link-btn link-btn-danger" name="sanity_status" value="failed">Mark failed</button>
+    </form>
+  </div>
+
+  <div class="record-block record-fields">
+    <span class="k">Instrument</span><span class="v">{{ m.instrument_source }}</span>
+    <span class="k">Detected by</span><span class="v">{{ detection_label(m.instrument_source) }}</span>
+    <span class="k">Technique</span><span class="v">{{ m.technique or "—" }}</span>
+    <span class="k">Scan rate</span><span class="v">{{ (m.scan_rate_v_s ~ " V/s") if m.scan_rate_v_s is not none else "—" }}</span>
+    <span class="k">Points</span><span class="v">{{ "{:,}".format(m.n_points) }}</span>
+    <span class="k">Schema</span><span class="v">{{ m.schema_version }}</span>
+  </div>
+
+  <div class="record-block">
+    <span class="sample-mapping-heading">Sample mapping</span>
+    <span class="sample-mapping-hint">Inferred from file content. Confirm before export &mdash; these columns are written to every row of the CSV.</span>
+    <form hx-post="/file/{{ file_id }}/mapping" hx-target="#plot-pane" hx-swap="innerHTML" style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
+      <div class="field-group">
+        <label class="field-label" for="sample_id-{{ file_id }}">Sample ID</label>
+        <input class="field-input" id="sample_id-{{ file_id }}" type="text" name="sample_id" value="{{ m.sample_id or '' }}" />
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="conc-{{ file_id }}">Concentration</label>
+          <input class="field-input" id="conc-{{ file_id }}" type="number" step="any" name="analyte_concentration"
+                 value="{{ m.analyte_concentration if m.analyte_concentration is not none else '' }}" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="unit-{{ file_id }}">Unit</label>
+          <input class="field-input" id="unit-{{ file_id }}" type="text" name="concentration_unit" value="{{ m.concentration_unit or '' }}" />
+        </div>
+      </div>
+      <div class="sample-mapping-actions">
+        <button type="submit" class="btn btn-primary">Confirm mapping</button>
+      </div>
+    </form>
+  </div>
+
+  {% set tech_params = visible_params(m.technique_params) %}
+  {% if tech_params %}
+  <div class="record-block">
+    <span class="tech-params-heading">Technique parameters</span>
+    <div class="tech-params-grid">
+      {% for k, v in tech_params.items() %}
+      <span class="k">{{ k }}</span><span>{{ v }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if stats_oob %}
+<div id="topbar-stats" hx-swap-oob="true">{% include "partials/topbar_stats.html" %}</div>
+<span id="footer-mapping-count" class="right" hx-swap-oob="true">{% include "partials/footer_count.html" %}</span>
+{% endif %}

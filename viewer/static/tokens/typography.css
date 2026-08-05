@@ -1,0 +1,31 @@
+:root{
+--font-sans:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;
+--font-mono:'IBM Plex Mono','SF Mono',ui-monospace,monospace;
+
+--text-2xs:11px;
+--text-xs:12px;
+--text-sm:13px;
+--text-base:15px;
+--text-md:17px;
+--text-lg:20px;
+--text-xl:24px;
+--text-2xl:30px;
+--text-3xl:38px;
+--text-4xl:48px;
+--text-5xl:64px;
+
+--leading-tight:1.2;
+--leading-snug:1.35;
+--leading-normal:1.5;
+--leading-relaxed:1.65;
+
+--weight-regular:400;
+--weight-medium:500;
+--weight-semibold:600;
+--weight-bold:700;
+
+--tracking-tight:-0.01em;
+--tracking-normal:0;
+--tracking-wide:0.02em;
+--tracking-wider:0.06em;
+}

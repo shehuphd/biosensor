@@ -1,0 +1,21 @@
+<div class="topbar-stat">
+  <span class="topbar-stat-label">Files</span>
+  <span class="topbar-stat-value">{{ stats.files }}</span>
+</div>
+<div class="topbar-stat">
+  <span class="topbar-stat-label">Formats</span>
+  <span class="topbar-stat-value">{{ stats.formats }}</span>
+</div>
+<div class="topbar-stat">
+  <span class="topbar-stat-label">Rows</span>
+  <span class="topbar-stat-value">{{ "{:,}".format(stats.rows) }}</span>
+</div>
+<div class="topbar-sep"></div>
+<div class="topbar-quality">
+  <span class="topbar-stat-label">Quality</span>
+  <div class="topbar-quality-row">
+    <span class="qdot"><span class="dot dot-ok"></span>{{ stats.ok }} ok</span>
+    <span class="qdot"><span class="dot dot-flagged"></span>{{ stats.flagged }} flagged</span>
+    <span class="qdot"><span class="dot dot-failed"></span>{{ stats.failed }} failed</span>
+  </div>
+</div>

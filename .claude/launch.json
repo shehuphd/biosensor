@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "biosensor-viewer",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["viewer/app.py"],
+      "port": 5050
+    }
+  ]
+}
