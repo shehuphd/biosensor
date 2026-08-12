@@ -105,11 +105,14 @@ class PalmSensReader(Reader):
     name = "palmsens"
 
     def sniff(self, raw: bytes, filename: str) -> bool:
-        if filename.lower().endswith(".pssession"):
-            return True
+        # Content first: the file must actually be a JSON object. A ".pssession"
+        # name is a hint that lowers the content bar, never a pass on its own,
+        # so a CSV misnamed foo.pssession falls through to the generic reader.
         head = raw[:2048].lstrip()
         if not head.startswith(b"{"):
             return False
+        if filename.lower().endswith(".pssession"):
+            return True
         lower = raw[:8192].lower()
         return b"measurements" in lower and (b"palmsens" in lower or b"pstrace" in lower or b"dataset" in lower)
 
@@ -127,6 +130,14 @@ class PalmSensReader(Reader):
             raise ParseError(f"{filename}: no 'Measurements' found in .pssession JSON")
 
         measurement_node = measurements[0]
+        if not isinstance(measurement_node, dict):
+            # A well-formed session has a dict per measurement. Anything else
+            # (a bare list, a deeply-nested blob) is malformed; reject cleanly
+            # instead of letting a .get() on a non-dict escape as AttributeError.
+            raise ParseError(
+                f"{filename}: first measurement is not an object, "
+                f"not a valid .pssession structure"
+            )
         budget = [_MAX_WALK_NODES]
         series = _walk_for_series(measurement_node.get("DataSet", measurement_node), budget)
 
@@ -140,8 +151,15 @@ class PalmSensReader(Reader):
         if len(potential_v) > MAX_DATA_ROWS or len(current_a) > MAX_DATA_ROWS:
             raise FileTooLargeError(f"{filename}: exceeds {MAX_DATA_ROWS} row limit")
 
-        n = min(len(potential_v), len(current_a))
-        potential_v, current_a = potential_v[:n], current_a[:n]
+        if len(potential_v) != len(current_a):
+            # Unequal lengths mean the walk paired a potential array from one
+            # curve with a current array from another. Truncating to the
+            # shorter one would misalign every point; reject instead of guess.
+            raise ParseError(
+                f"{filename}: potential ({len(potential_v)}) and current "
+                f"({len(current_a)}) arrays differ in length; refusing to "
+                f"guess the pairing"
+            )
 
         method = measurement_node.get("Method", {}) if isinstance(measurement_node, dict) else {}
         technique = measurement_node.get("Title") or method.get("Name")

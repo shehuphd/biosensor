@@ -222,12 +222,57 @@ def test_generic_csv_row_with_unparseable_current_is_skipped_wholesale():
 # ---------------------------------------------------------------- deep JSON is a bounded failure
 
 def test_deeply_nested_palmsens_json_raises_parse_error_not_recursion():
-    # A pathologically nested document makes json.loads raise RecursionError,
-    # not JSONDecodeError. The reader must surface that as a ParseError rather
-    # than let it escape as an unhandled crash.
+    # A pathologically nested document either makes json.loads raise
+    # RecursionError (older parsers) or parses to a structure whose first
+    # measurement isn't an object (newer C scanners). Either way the reader
+    # must surface a ParseError, never an unhandled RecursionError/AttributeError.
     payload = "0"
     for _ in range(3000):
         payload = "[" + payload + "]"
     raw = ('{"Measurements":' + payload + "}").encode()
     with pytest.raises(ParseError):
         PalmSensReader().parse(raw, "deep.pssession")
+
+
+# ---------------------------------------------------------------- extension is never trusted alone
+
+def test_csv_misnamed_pssession_falls_through_to_generic():
+    # A ".pssession" extension is a hint, not a pass: a file whose content is
+    # plainly CSV must not be routed to the PalmSens (JSON) reader.
+    raw = (
+        b"Potential (V),Current (A)\n"
+        b"-0.5,1e-7\n-0.4,2e-7\n-0.3,5e-6\n-0.2,2e-7\n-0.1,1e-7\n"
+    )
+    assert PalmSensReader().sniff(raw, "actually_csv.pssession") is False
+    assert detect_reader(raw, "actually_csv.pssession").name == "generic_csv"
+
+
+def test_palmsens_mismatched_array_lengths_are_rejected_not_truncated():
+    # Unequal potential/current arrays mean the walk paired series from two
+    # different curves. Truncating to the shorter would misalign every point;
+    # the reader rejects instead of guessing.
+    doc = {
+        "Measurements": [
+            {
+                "DataSet": {
+                    "Values": [
+                        {"Type": "Potential", "DataValues": [0.1, 0.2, 0.3, 0.4, 0.5]},
+                        {"Type": "Current", "DataValues": [1e-6, 2e-6, 3e-6]},
+                    ]
+                }
+            }
+        ]
+    }
+    raw = json.dumps(doc).encode()
+    with pytest.raises(ParseError):
+        PalmSensReader().parse(raw, "mismatch.pssession")
+
+
+def test_nova_current_regex_rejects_current_in_volts():
+    # "I /V" is not a current column on any instrument; the regex must not bind
+    # it (it used to, from a stray alternative), while "I /A" still matches.
+    from biosensor.readers.metrohm_nova import _CURRENT_HEADER_RE
+
+    assert _CURRENT_HEADER_RE.search("I /A")
+    assert _CURRENT_HEADER_RE.search("WE(1).Current (A)")
+    assert not _CURRENT_HEADER_RE.search("I /V")

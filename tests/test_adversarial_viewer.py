@@ -8,6 +8,7 @@ autoescape) gets a test that actually exercises the attack it exists for.
 from __future__ import annotations
 
 import io
+import re
 import sys
 from pathlib import Path
 
@@ -130,6 +131,21 @@ def test_csv_formula_injection_at_symbol_and_plus_are_defused(client):
             assert not cell.startswith(("=", "+", "@")) or cell.startswith("'")
 
 
+def test_csv_formula_guard_covers_str_dtype_columns():
+    # pandas 3 gives text columns like source_filename the numpy 'str' dtype,
+    # which the old object-only selector covered only via a deprecated shim; on
+    # pandas 2 the same column is 'object'. The guard must defuse a formula in
+    # either case, which is the whole point of selecting by "not numeric"
+    # instead of by the "object" dtype name.
+    import pandas as pd
+
+    df = pd.DataFrame({"potential_v": [0.1, 0.2], "source_filename": ["=cmd|'/c calc'!A1", "ok.csv"]})
+    df["source_filename"] = df["source_filename"].astype("str")
+    assert not pd.api.types.is_numeric_dtype(df["source_filename"].dtype)
+    out = viewer_app._defuse_csv_formulas(df)
+    assert out["source_filename"].iloc[0].startswith("'=")
+
+
 # ---------------------------------------------------------------- oversized upload
 
 def test_upload_over_max_content_length_is_rejected(client):
@@ -214,6 +230,71 @@ def test_mapping_apply_with_out_of_range_column_index_is_handled(client):
     # left untouched (not corrupted, not a 500).
     assert resp.status_code in (200, 400)
     assert len(viewer_app.STORE) == 1
+
+
+def test_mapping_apply_with_non_numeric_column_is_400_not_500(client):
+    # A non-numeric column value used to hit an unguarded int() and surface as
+    # a 500 (the debug page). It must degrade to a clean 400.
+    _upload(client, "chi.txt", CHI_VALID)
+    file_id = next(iter(viewer_app.STORE))
+    for endpoint in ("apply", "preview"):
+        resp = client.post(
+            f"/file/{file_id}/mapping/{endpoint}",
+            data={
+                "potential_col": "abc",
+                "current_col": "1",
+                "cycle_col": "none",
+                "potential_unit": "V",
+                "current_unit": "A",
+                "origin": "panes",
+            },
+        )
+        assert resp.status_code == 400, endpoint
+
+
+def test_non_localhost_host_header_is_rejected(client):
+    # DNS-rebinding defense: the dev server accepts any Host, so a request whose
+    # Host isn't localhost must be refused.
+    resp = client.get("/", headers={"Host": "attacker.example"})
+    assert resp.status_code == 403
+
+
+def test_cross_origin_post_is_rejected(client):
+    _upload(client, "chi.txt", CHI_VALID)
+    file_id = next(iter(viewer_app.STORE))
+    resp = client.post(
+        f"/file/{file_id}/mapping/apply",
+        data={"potential_col": "0", "current_col": "1", "cycle_col": "none"},
+        headers={"Origin": "http://attacker.example"},
+    )
+    assert resp.status_code == 403
+
+
+def test_localhost_origin_is_allowed(client):
+    resp = client.get("/", headers={"Origin": "http://127.0.0.1:5050"})
+    assert resp.status_code == 200
+
+
+def test_responses_are_not_cached(client):
+    resp = client.get("/")
+    assert resp.headers.get("Cache-Control") == "no-store"
+
+
+def test_primary_action_accent_follows_file_count(client):
+    # With nothing loaded there's nothing to export, so Upload carries the
+    # primary (green) accent, not Export. Once a file exists it moves to Export.
+    def accents():
+        html = client.get("/").get_data(as_text=True)
+        up = re.search(r'id="action-upload"[^>]*class="([^"]*)"', html).group(1)
+        ex = re.search(r'id="action-export"[^>]*class="([^"]*)"', html).group(1)
+        return "primary" in up, "primary" in ex
+
+    up_primary, ex_primary = accents()
+    assert up_primary and not ex_primary
+
+    _upload(client, "chi.txt", CHI_VALID)
+    up_primary, ex_primary = accents()
+    assert not up_primary and ex_primary
 
 
 def test_batch_upload_with_no_files_is_handled(client):

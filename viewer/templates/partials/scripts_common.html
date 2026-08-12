@@ -53,6 +53,21 @@
   }
   document.body.addEventListener('htmx:afterSwap', renderAllPlots);
 
+  // The primary (accent) toolbar action follows what's actionable: with no
+  // files loaded there's nothing to export, so Upload carries the accent;
+  // once files exist it moves to Export. #topbar-stats is OOB-swapped on every
+  // load/remove, so re-syncing on afterSwap keeps this live.
+  function syncPrimaryAction() {
+    const el = document.getElementById('stat-files-value');
+    const count = el ? (parseInt(el.textContent, 10) || 0) : 0;
+    const upload = document.getElementById('action-upload');
+    const exportBtn = document.getElementById('action-export');
+    if (upload) upload.classList.toggle('primary', count === 0);
+    if (exportBtn) exportBtn.classList.toggle('primary', count > 0);
+  }
+  syncPrimaryAction();
+  document.body.addEventListener('htmx:afterSwap', syncPrimaryAction);
+
   function filterFlashErrors(btn) {
     const wrap = btn.closest('.flash-errors');
     if (!wrap) return;

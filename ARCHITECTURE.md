@@ -91,4 +91,4 @@ instrumented with [traceact](https://github.com/traceact/traceact), writing to
 `data/traces/traces.jsonl` for local debugging. Tracing isn't required to run
 the app.
 
-Built by Mo Shehu — mohammedshehu.com
+Built by Mo Shehu, mohammedshehu.com

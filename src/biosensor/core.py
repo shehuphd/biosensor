@@ -10,6 +10,8 @@ import pandas as pd
 
 from biosensor.qc import sanity_check
 from biosensor.readers.base import (
+    MAX_FILE_BYTES,
+    FileTooLargeError,
     ParseError,
     UnsupportedFormatError,
     classify_error,
@@ -27,6 +29,14 @@ class LoadResult:
 def load(filepath: str | os.PathLike) -> LoadResult:
     """Load a single instrument export file, auto-detecting its format."""
     path = Path(filepath)
+    # Check size on disk before reading, so a huge file in a batch folder is
+    # rejected without first being pulled into memory in full.
+    size = path.stat().st_size
+    if size > MAX_FILE_BYTES:
+        raise FileTooLargeError(
+            f"{path.name}: file is {size} bytes, exceeds the "
+            f"{MAX_FILE_BYTES} byte limit for parsing"
+        )
     raw = path.read_bytes()
     reader = detect_reader(raw, path.name)
     measurement = reader.parse(raw, path.name)
@@ -122,6 +132,10 @@ def batch_load(directory: str | os.PathLike) -> BatchLoadResult:
 
     for entry in sorted(dir_path.iterdir()):
         if not entry.is_file():
+            continue
+        if entry.name.startswith("."):
+            # Skip OS/editor cruft (.DS_Store, .gitkeep, ...) so it doesn't add
+            # a spurious error to every batch loaded from a macOS folder.
             continue
         try:
             results.append(load(entry))

@@ -27,11 +27,24 @@ from biosensor.readers.base import (
     Reader,
     enforce_size_limit,
 )
-from biosensor.readers.columns import infer_column_mapping, infer_from_filename
+from biosensor.readers.columns import (
+    column_unit,
+    infer_column_mapping,
+    infer_from_filename,
+)
 from biosensor.schema import Measurement
 
 _SNIFF_SAMPLE_BYTES = 4096
 _HEADER_SCAN_LINES = 25
+
+
+def _nonbase_unit_note(header: str) -> str | None:
+    """Describe a header's non-base unit (e.g. "mA", "mV"), or None if it reads
+    as a base SI unit (volts/amps) or carries no recognizable unit."""
+    unit = column_unit(header)
+    if unit and unit[1]:  # a non-empty SI prefix means a non-base unit
+        return f'"{header}" is in {unit[1]}{unit[0]}, not base {unit[0]}'
+    return None
 
 
 def _decode(raw: bytes) -> str:
@@ -106,16 +119,26 @@ def _build_plan(text: str) -> dict | None:
             name = mapping[field]
             return header.index(name) if name in header else None
 
+        pot_i = header.index(mapping["potential_v"])
+        cur_i = header.index(mapping["current_a"])
+        # We read base SI units only. A hint-matched column labelled in a
+        # non-base unit (mA, mV, µA, ...) is recorded here and rejected at
+        # parse time rather than stored 1000x off. Detection still claims the
+        # file so the user gets a clear reason instead of "unsupported".
+        unit_error = _nonbase_unit_note(header[pot_i]) or _nonbase_unit_note(
+            header[cur_i]
+        )
         return {
             "rows": rows,
             "header_idx": header_idx,
             "header": header,
             "mapping": mapping,
-            "pot": header.index(mapping["potential_v"]),
-            "cur": header.index(mapping["current_a"]),
+            "pot": pot_i,
+            "cur": cur_i,
             "sample": idx_of("sample_id"),
             "conc": idx_of("analyte_concentration"),
             "unit": idx_of("concentration_unit"),
+            "unit_error": unit_error,
         }
 
     if _looks_headerless_numeric(rows):
@@ -161,6 +184,13 @@ class GenericCSVReader(Reader):
         if plan is None:
             raise ParseError(
                 f"{filename}: could not identify potential/current columns"
+            )
+        if plan.get("unit_error"):
+            raise ParseError(
+                f"{filename}: {plan['unit_error']}. Biosensor reads base SI "
+                f"units only (volts, amps); convert the column to V/A before "
+                f"loading. (Automatic unit conversion is planned, not yet "
+                f"shipped.)"
             )
 
         rows = plan["rows"]

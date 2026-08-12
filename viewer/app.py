@@ -17,7 +17,9 @@ import re
 import uuid
 from dataclasses import replace
 from pathlib import Path
+from urllib.parse import urlparse
 
+import pandas as pd
 from flask import Flask, Response, render_template, request
 from werkzeug.utils import secure_filename
 
@@ -66,6 +68,46 @@ app.jinja_env.globals["visible_params"] = lambda params: {
 }
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "[::1]"}
+
+
+@app.before_request
+def _local_only_guard():
+    """Reject requests that aren't same-origin localhost.
+
+    The viewer binds to 127.0.0.1, but the dev server accepts any Host header,
+    which leaves it open to DNS-rebinding and cross-origin form POSTs from any
+    page in the researcher's browser. Pinning Host and (when present) Origin to
+    localhost closes both without any token/session machinery.
+    """
+    host = (request.host or "").rsplit(":", 1)[0]
+    if host not in _LOCAL_HOSTS:
+        return "Invalid host", 403
+    origin = request.headers.get("Origin")
+    if origin:
+        origin_host = (urlparse(origin).hostname or "")
+        if origin_host not in _LOCAL_HOSTS:
+            return "Cross-origin request blocked", 403
+    return None
+
+
+@app.after_request
+def _no_store(response: Response) -> Response:
+    # Local, single-user, in-memory tool: never let a browser cache a view or a
+    # self-hosted asset, so a restart (which clears STORE) can't be shadowed by
+    # a stale page.
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _form_int(name: str, default: int) -> int:
+    """Parse an integer form field, raising ValueError on any non-numeric value
+    (an unguarded int() here would surface as a 500 / debugger page)."""
+    raw = request.form.get(name)
+    if raw is None or raw == "":
+        return default
+    return int(raw)
 
 
 def _asset_version() -> str:
@@ -354,10 +396,13 @@ def preview_mapping(file_id: str):
     m = entry["result"].measurement
     table = read_raw_table(entry["raw"], m.source_filename, m.instrument_source)
 
-    pot_col = int(request.form.get("potential_col", 0))
-    cur_col = int(request.form.get("current_col", 1))
     cycle_raw = request.form.get("cycle_col", "none")
-    cycle_col = None if cycle_raw == "none" else int(cycle_raw)
+    try:
+        pot_col = _form_int("potential_col", 0)
+        cur_col = _form_int("current_col", 1)
+        cycle_col = None if cycle_raw == "none" else int(cycle_raw)
+    except ValueError:
+        return "<p class='error'>Column selection must be numeric</p>", 400
     pot_unit = request.form.get("potential_unit", "V")
     cur_unit = request.form.get("current_unit", "A")
 
@@ -404,10 +449,13 @@ def apply_mapping(file_id: str):
         return "<p class='error'>File not found</p>", 404
     m = entry["result"].measurement
 
-    pot_col = int(request.form.get("potential_col", 0))
-    cur_col = int(request.form.get("current_col", 1))
     cycle_raw = request.form.get("cycle_col", "none")
-    cycle_col = None if cycle_raw == "none" else int(cycle_raw)
+    try:
+        pot_col = _form_int("potential_col", 0)
+        cur_col = _form_int("current_col", 1)
+        cycle_col = None if cycle_raw == "none" else int(cycle_raw)
+    except ValueError:
+        return "<p class='error'>Column selection must be numeric</p>", 400
     pot_unit = request.form.get("potential_unit", "V")
     cur_unit = request.form.get("current_unit", "A")
     apply_to_batch = request.form.get("apply_to_batch") == "on"
@@ -479,7 +527,13 @@ def _defuse_csv_formulas(df):
     (e.g. "=CMD(...)") into a CSV a researcher later opens in Excel.
     """
     df = df.copy()
-    for column in df.select_dtypes(include=["object"]).columns:
+    # Skip numeric columns (potential/current/etc.) explicitly instead of
+    # selecting "object" dtype: that selector's meaning changes for string
+    # columns in pandas 3. The isinstance(str) guard keeps this correct on any
+    # remaining column regardless of its exact text dtype.
+    for column in df.columns:
+        if pd.api.types.is_numeric_dtype(df[column]):
+            continue
         df[column] = df[column].map(
             lambda v: ("'" + v) if isinstance(v, str) and v.startswith(_FORMULA_TRIGGER_CHARS) else v
         )
@@ -489,8 +543,6 @@ def _defuse_csv_formulas(df):
 @app.route("/dataframe")
 @traceact.traced_action(action="export.csv", kind="file", operation="write", target="batch", capture_inputs=False)
 def export_all():
-    import pandas as pd
-
     frames = [to_dataframe(e["result"].measurement) for e in STORE.values()]
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     return _csv_response(df, "biosensor_batch.csv")
@@ -529,7 +581,10 @@ def ledger_file_detail(file_id: str):
 
 
 def main():
-    app.run(host="127.0.0.1", port=5050, debug=True)
+    # debug=False: the launcher path double-clicks straight into this, and a
+    # debugger/reloader on an app that ingests untrusted files is a code-exec
+    # surface. Localhost-only binding stays.
+    app.run(host="127.0.0.1", port=5050, debug=False)
 
 
 if __name__ == "__main__":

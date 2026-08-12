@@ -1,1 +1,69 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+/* IBM Plex, vendored locally so the viewer needs no network for fonts.
+   SIL Open Font License 1.1 (bundling permitted); see ../vendor/fonts/OFL.txt.
+   Latin-subset woff2 (covers the micro sign U+00B5 used in unit labels);
+   glyphs outside the subset fall back to the next family in the stack. */
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-sans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-sans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-sans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-sans-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-sans-400-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-400-italic.woff2') format('woff2');
+}

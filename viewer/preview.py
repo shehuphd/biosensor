@@ -5,6 +5,8 @@ Kept separate from app.py so it can be unit tested without Flask.
 
 from __future__ import annotations
 
+import math
+
 from biosensor.core import to_dataframe
 from biosensor.schema import Measurement
 
@@ -15,6 +17,11 @@ def _format_cell(value) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
+        # A missing optional field (cycle_number, scan_rate_v_s) is float64 NaN
+        # in the frame, not None. Show it blank, the same as the exported CSV
+        # and the "—" in the parse record, instead of the literal text "nan".
+        if math.isnan(value):
+            return ""
         return f"{value:.6g}"
     return str(value)
 

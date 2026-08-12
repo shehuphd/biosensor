@@ -22,7 +22,7 @@ from biosensor.readers.base import (
 from biosensor.schema import Measurement
 
 _POTENTIAL_HEADER_RE = re.compile(r"(we\(1\)\.)?potential|^e\s*/\s*v$", re.IGNORECASE)
-_CURRENT_HEADER_RE = re.compile(r"(we\(1\)\.)?current|^i\s*/\s*v$|^i\s*/\s*a$", re.IGNORECASE)
+_CURRENT_HEADER_RE = re.compile(r"(we\(1\)\.)?current|^i\s*/\s*a$", re.IGNORECASE)
 _SCAN_HEADER_RE = re.compile(r"^scan$|^cycle", re.IGNORECASE)
 _SIGNATURE_HINTS = ("autolab", "nova", "metrohm", "we(1).potential", "we(1).current")
 

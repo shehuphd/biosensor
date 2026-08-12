@@ -3,7 +3,62 @@
 All notable changes to Biosensor, newest first. Versions follow semantic
 versioning.
 
-## 1.0.0 — 2026-08-12
+## 1.1.0 - 2026-08-13
+
+A correctness, safety, and robustness pass. No API changes.
+
+### Library
+- Non-base units are now rejected instead of mis-scaled. A generic-CSV column
+  labelled `Current (mA)`, `Voltage (mV)`, or BioLogic's `<I>/mA` is rejected
+  with a reason rather than stored 1000x off. Previously only an unrecognized
+  spelling was rejected while a recognized one silently mis-scaled. (Automatic
+  unit conversion is still planned, not yet shipped.)
+- `load()` checks file size against the byte ceiling with `stat()` before
+  reading, so an oversized file in a batch folder is rejected without first
+  being pulled into memory in full.
+- PalmSens reader hardening: detection requires JSON content, never the
+  `.pssession` extension on its own, so a misnamed CSV falls through to the
+  generic reader; potential/current arrays of unequal length are rejected
+  instead of silently truncated to the shorter; and a first measurement that
+  is not an object degrades to a `ParseError` rather than an unhandled
+  `AttributeError`.
+- Metrohm Nova: removed a stray current-header alternative that matched `I /V`
+  (current in volts, which no instrument produces).
+- `batch_load` skips dotfiles (`.DS_Store`, `.gitkeep`), so a macOS folder no
+  longer adds a spurious per-batch error.
+
+### Viewer
+- Localhost-only request guard: any non-localhost `Host` (DNS-rebinding) and
+  any cross-origin form POST are refused, closing the widest opening in the
+  stated trust boundary.
+- Non-numeric column-mapping input returns a 400 instead of a 500 debugger
+  page.
+- The server runs with `debug=False`, so the double-click launcher no longer
+  exposes the Werkzeug debugger and reloader on a tool that ingests untrusted
+  files.
+- `Cache-Control: no-store` on every response, so a restart (which clears the
+  in-memory store) is never shadowed by a stale cached page.
+- The CSV formula-injection guard now covers pandas 3 `str`-dtype text columns
+  (including `source_filename`), which the previous object-only selector
+  covered only through a deprecated compatibility shim.
+- htmx 2.0.10, Plotly 3.7.0, and the IBM Plex fonts (SIL Open Font License
+  1.1) are vendored into `viewer/static/vendor/` instead of loaded from a CDN.
+  The viewer now runs fully offline with no third-party CDN in its supply
+  chain, and no longer depends on a superseded htmx 1.x.
+- The dataframe preview shows a missing optional field (`cycle_number`,
+  `scan_rate_v_s`) as a blank cell, matching the exported CSV and the parse
+  record, instead of the literal text "nan".
+- The primary toolbar accent follows what's actionable: Upload carries it when
+  no files are loaded (nothing to export yet), and it moves to Export once a
+  file exists.
+
+### Tooling
+- Launchers rebuild an incomplete virtual environment, use `python -m pip` and
+  `ensurepip`, and start the app with the venv interpreter directly instead of
+  relying on a shell-activated PATH.
+- Regression tests added for every fix above.
+
+## 1.0.0 - 2026-08-12
 
 First public release.
 
@@ -41,4 +96,4 @@ First public release.
 - Synthetic sample dataset across all four formats, and a pytest suite with
   adversarial reader and viewer coverage.
 
-Built by Mo Shehu — mohammedshehu.com
+Built by Mo Shehu, mohammedshehu.com

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from biosensor.readers.base import UnsupportedFormatError
+from biosensor.readers.base import ParseError, UnsupportedFormatError
 from biosensor.readers.detect import detect_reader
 from biosensor.readers.generic_csv import GenericCSVReader
 
@@ -54,9 +54,29 @@ def test_non_electrochemical_two_column_text_is_rejected():
         detect_reader(raw, "people.csv")
 
 
-def test_unreadable_current_unit_is_rejected_not_misscaled():
-    # We don't convert units. A current column we can't read as amps (e.g.
-    # milliamps) is rejected rather than silently mis-scaled by 1000x.
-    raw = b"Ewe/V,I/mA\n" + ("\n".join(_sweep_rows(30))).encode()
-    with pytest.raises(UnsupportedFormatError):
-        detect_reader(raw, "biologic_milliamp.csv")
+@pytest.mark.parametrize(
+    "header",
+    [
+        "Potential (V),Current (mA)",  # the spelling that silently mis-scaled
+        "Voltage (mV),Current (A)",    # non-base potential too
+        "Ewe/V,<I>/mA",                # BioLogic-style, name hint misses current
+        "Ewe/V,I/mA",
+    ],
+)
+def test_nonbase_unit_is_rejected_not_misscaled(header):
+    # We don't convert units yet. A hint-matched column labelled in a non-base
+    # unit (mA, mV, ...) must be rejected, never stored 1000x off. The reader
+    # claims the file (so the user gets a reason) and fails at parse.
+    raw = (header + "\n" + "\n".join(_sweep_rows(30)) + "\n").encode()
+    reader = detect_reader(raw, "biologic.csv")
+    assert reader.name == "generic_csv"
+    with pytest.raises(ParseError):
+        reader.parse(raw, "biologic.csv")
+
+
+def test_base_units_still_parse():
+    # The base-unit spellings the non-base guard must not touch.
+    for header in ("Potential (V),Current (A)", "Ewe/V,I/A"):
+        raw = (header + "\n" + "\n".join(_sweep_rows(30)) + "\n").encode()
+        m = GenericCSVReader().parse(raw, "base.csv")
+        assert m.n_points == 30

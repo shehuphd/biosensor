@@ -9,7 +9,9 @@ The full manual. For a one-minute overview and install, see
 pip install biosensor
 ```
 
-For a local checkout with the test suite:
+That wheel is the library only. The viewer, the double-click launchers, and
+`sample_data/` ship in the repository, not on PyPI. For those, and for the test
+suite, clone and install in place:
 
 ```bash
 python3 -m venv .venv
@@ -62,7 +64,8 @@ included to exercise the batch error path.
 `LoadResult` holds `.measurement` (a `Measurement`) and `.qc` (a `QCRecord`).
 
 `BatchLoadResult` holds `.results` (a list of `LoadResult`) and `.errors` (a
-list of `(filename, message)` tuples), plus two convenience methods:
+list of `BatchError`, each carrying `.filename`, `.message`, and a `.category`;
+see [Errors](#errors)), plus two convenience methods:
 
 | Method | Returns | Purpose |
 |---|---|---|
@@ -88,10 +91,14 @@ self-describing.
 | `concentration_unit` | str or None | e.g. "pM" |
 | `timestamp` | datetime or None | Parsed from file metadata when present |
 | `replicate_id` | str or None | e.g. "r01" |
-| `technique_params` | dict | Technique-specific settings (SWV frequency, DPV pulse width) |
 | `instrument_source` | str | Which reader parsed it |
 | `source_filename` | str | Original filename |
 | `schema_version` | str | Currently "1.0" |
+
+The dataframe has 14 columns, one per field above. `technique_params` is not
+among them: it stays a dict on the `Measurement` (SWV frequency, DPV pulse
+width, and a `_column_mapping` record) and isn't expanded into the long-form
+frame.
 
 `analyte_concentration`, `scan_rate_v_s`, and `cycle_number` are typed
 `float64` in the dataframe, so a file missing one of them holds `NaN` in that
@@ -116,9 +123,11 @@ generic CSV path (most PalmSens software can export CSV directly).
 The generic CSV reader handles three shapes: a header row naming the columns,
 one or more metadata lines before that header (the header is found by scanning
 the first lines), and headerless files, where column 1 is read as potential
-(V) and column 2 as current (A). Values are read in base SI units; a current
-column labelled in a non-base unit (for example mA) is rejected rather than
-silently mis-scaled.
+(V) and column 2 as current (A). Values are read in base SI units; a current or
+potential column labelled in a non-base unit (for example `Current (mA)` or
+`Voltage (mV)`, including BioLogic's `<I>/mA`) is rejected with a reason
+rather than silently mis-scaled. Automatic unit conversion is planned, not yet
+shipped.
 
 ## Quality check
 
@@ -201,4 +210,4 @@ with a live preview, override the quality flag, and export a single file or
 the whole batch as CSV. CSV export defuses spreadsheet-formula injection in any
 text field derived from file content.
 
-Built by Mo Shehu — mohammedshehu.com
+Built by Mo Shehu, mohammedshehu.com
