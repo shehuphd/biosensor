@@ -1,8 +1,7 @@
 """Generate a varied, realistic sample dataset for manually exercising the
 viewer: batch loading, filters, the ledger view, and the sanity/mapping
-flows. Synthetic (not real instrument exports), but shaped like an
-immunosensor concentration series — peak height scales with concentration,
-matching the PRD's target workflow.
+flows. Synthetic (not instrument exports), but shaped like an
+immunosensor concentration series, where peak height scales with concentration.
 
 Run: python scripts/generate_sample_data.py
 """

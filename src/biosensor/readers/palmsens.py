@@ -9,8 +9,8 @@ a "Method" block for technique metadata.
 PalmSens does not publish a stable public schema for this format, so this
 reader is intentionally lenient: it walks the parsed JSON looking for
 arrays whose type label matches "potential" / "current" rather than
-assuming one exact shape. Treat this as best-effort coverage, consistent
-with the PRD's "four readers, not exhaustive vendor support" scope — files
+assuming one exact shape. Treat this as best-effort coverage within the
+project's four-reader scope (not exhaustive vendor support). Files
 from unusual PSTrace versions may need the generic CSV path instead (most
 PalmSens software can also export CSV directly).
 """
@@ -20,13 +20,14 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from biosensor_io.readers.base import (
+from biosensor.readers.base import (
     MAX_DATA_ROWS,
+    FileTooLargeError,
     ParseError,
     Reader,
     enforce_size_limit,
 )
-from biosensor_io.schema import Measurement
+from biosensor.schema import Measurement
 
 _POTENTIAL_TYPE_HINTS = ("potential", "voltage", "ewe")
 _CURRENT_TYPE_HINTS = ("current",)
@@ -38,6 +39,8 @@ def _safe_json_loads(text: str, filename: str) -> Any:
         return json.loads(text)
     except json.JSONDecodeError as e:
         raise ParseError(f"{filename}: not valid JSON ({e})") from e
+    except RecursionError as e:
+        raise ParseError(f"{filename}: JSON nesting too deep to parse") from e
 
 
 def _extract_numeric_array(node: Any) -> Optional[list[float]]:
@@ -83,7 +86,7 @@ def _walk_for_series(node: Any, budget: list[int]) -> dict[str, list[float]]:
                     found["current"] = array
             for v in current.values():
                 # A node whose data we just extracted needn't be re-walked
-                # element-by-element — for a large array that would burn
+                # element-by-element; for a large array that would burn
                 # the whole node budget on numbers we've already read,
                 # starving out whatever sibling node (e.g. the other of
                 # potential/current) hasn't been found yet.
@@ -135,7 +138,7 @@ class PalmSensReader(Reader):
                 f"PalmSens session data"
             )
         if len(potential_v) > MAX_DATA_ROWS or len(current_a) > MAX_DATA_ROWS:
-            raise ParseError(f"{filename}: exceeds {MAX_DATA_ROWS} row limit")
+            raise FileTooLargeError(f"{filename}: exceeds {MAX_DATA_ROWS} row limit")
 
         n = min(len(potential_v), len(current_a))
         potential_v, current_a = potential_v[:n], current_a[:n]

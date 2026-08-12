@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "biosensor-io"
-version = "0.3.0"
+name = "biosensor"
+version = "1.0.0"
 description = "Parse electrochemical instrument exports (CH Instruments, Metrohm Nova, PalmSens, CSV) into one tidy dataframe schema, with a local viewer to sanity-check the parse."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,8 +19,16 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
+[project.urls]
+Homepage = "https://github.com/shehuphd/biosensor"
+Repository = "https://github.com/shehuphd/biosensor"
+Changelog = "https://github.com/shehuphd/biosensor/blob/main/CHANGELOG.md"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+biosensor = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

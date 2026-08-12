@@ -1,6 +1,4 @@
-{% if flash_error %}
-<p class="error">{{ flash_error }}</p>
-{% endif %}
+{% include "partials/flash_errors.html" %}
 
 {% if not store %}
 <p class="files-empty">No files loaded yet.</p>
@@ -21,7 +19,7 @@
     <span class="dot dot-{{ qc.sanity_status }}"></span>
     <div class="file-row-text">
       <span class="file-row-name">{{ m.source_filename }}</span>
-      <span class="file-row-meta">{{ m.instrument_source }} &middot; {{ m.n_points }} pts &middot; {{ qc.sanity_reason or "parsed cleanly" }}</span>
+      <span class="file-row-meta">{{ m.instrument_source }} &middot; {{ m.n_points }} pts &middot; {{ qc.sanity_reason or "no issues flagged" }}</span>
     </div>
     <button type="button" class="file-row-remove"
             hx-delete="/file/{{ file_id }}"

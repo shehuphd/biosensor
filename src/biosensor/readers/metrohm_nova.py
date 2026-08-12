@@ -12,13 +12,14 @@ import csv
 import io
 import re
 
-from biosensor_io.readers.base import (
+from biosensor.readers.base import (
     MAX_DATA_ROWS,
+    FileTooLargeError,
     ParseError,
     Reader,
     enforce_size_limit,
 )
-from biosensor_io.schema import Measurement
+from biosensor.schema import Measurement
 
 _POTENTIAL_HEADER_RE = re.compile(r"(we\(1\)\.)?potential|^e\s*/\s*v$", re.IGNORECASE)
 _CURRENT_HEADER_RE = re.compile(r"(we\(1\)\.)?current|^i\s*/\s*v$|^i\s*/\s*a$", re.IGNORECASE)
@@ -98,7 +99,7 @@ class MetrohmNovaReader(Reader):
 
         data_rows = rows[1:]
         if len(data_rows) > MAX_DATA_ROWS:
-            raise ParseError(f"{filename}: exceeds {MAX_DATA_ROWS} row limit")
+            raise FileTooLargeError(f"{filename}: exceeds {MAX_DATA_ROWS} row limit")
 
         for row in data_rows:
             if len(row) <= max(pot_idx, cur_idx):

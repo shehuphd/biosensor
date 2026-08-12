@@ -1,12 +1,12 @@
-"""biosensor-io viewer: local Flask + HTMX app for parsing and sanity-checking
+"""biosensor viewer: local Flask + HTMX app for parsing and sanity-checking
 electrochemical exports.
 
-Single-user, local-only per the PRD's non-goals (no auth, no cloud
-deployment). State lives in an in-memory store for the life of the process.
+Single-user, local-only (no auth, no cloud deployment). State lives in an
+in-memory store for the life of the process.
 
-Visual design follows internal/design/ (Tree Design System tokens): the
-in-app copy label is "Quality check" throughout, though the underlying
-field name (`qc.sanity_status`) is unchanged, per internal/design/README.md.
+Visual design follows the Tree Design System tokens: the in-app copy label
+is "Quality check" throughout, though the underlying field name
+(`qc.sanity_status`) is unchanged.
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ from dataclasses import replace
 from pathlib import Path
 
 from flask import Flask, Response, render_template, request
-from markupsafe import escape
 from werkzeug.utils import secure_filename
 
 import traceact
-from biosensor_io.core import LoadResult, to_dataframe
-from biosensor_io.qc import sanity_check
-from biosensor_io.readers.base import ParseError, UnsupportedFormatError
-from biosensor_io.readers.detect import detect_reader
+from biosensor import __version__ as biosensor_version
+from biosensor.core import LoadResult, to_dataframe
+from biosensor.qc import sanity_check
+from biosensor.readers.base import ParseError, UnsupportedFormatError, classify_error
+from biosensor.readers.detect import detect_reader
 from mapping import (
     CORRECTABLE_SOURCES,
     CURRENT_UNITS,
@@ -50,6 +50,7 @@ app.wsgi_app = traceact.TraceActMiddleware(app.wsgi_app)
 # Upload size cap: bound total request size before per-file parsing limits
 # even come into play (security consideration: untrusted uploads).
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30 MB per request
+app.jinja_env.globals["app_version"] = biosensor_version
 app.jinja_env.globals["plot_json"] = build_plot_json
 app.jinja_env.globals["dataframe_preview"] = build_dataframe_preview
 
@@ -80,7 +81,7 @@ app.jinja_env.globals["asset_version"] = _asset_version
 app.jinja_env.globals["sparkline_path"] = lambda m: preview_svg_path(m, width=90, height=28)
 
 # file_id -> {"raw": bytes, "result": LoadResult, "mapping_confirmed": bool}.
-# In-memory, single-process, local-only — resets on restart by design.
+# In-memory, single-process, local-only; resets on restart by design.
 STORE: dict[str, dict] = {}
 
 
@@ -105,7 +106,7 @@ def _sanitize_measurement(measurement):
 
 
 @traceact.traced_action(action="file.parse", kind="file", capture_inputs=False)
-def _parse_upload(file_storage) -> tuple[str, bytes, LoadResult] | tuple[str, None, str]:
+def _parse_upload(file_storage) -> tuple[str, bytes, LoadResult] | tuple[str, None, dict]:
     filename = secure_filename(file_storage.filename or "upload")
     raw = file_storage.read()
     try:
@@ -114,12 +115,20 @@ def _parse_upload(file_storage) -> tuple[str, bytes, LoadResult] | tuple[str, No
         qc = sanity_check(measurement)
         return filename, raw, LoadResult(measurement=measurement, qc=qc)
     except (ParseError, UnsupportedFormatError, ValueError) as e:
-        return filename, None, str(e)
-    except Exception:
+        return filename, None, {"message": str(e), "category": classify_error(e)}
+    except Exception as e:
         # Untrusted input: any other parse-time failure (e.g. a
-        # pathologically nested JSON payload) is reported as a failed
-        # parse, never a 500 that leaks a stack trace.
-        return filename, None, "file could not be parsed (unexpected format or corrupt data)"
+        # pathologically nested JSON payload) is reported as a failed parse,
+        # never a 500 that leaks a stack trace. The exception type is safe to
+        # name; the raw message is withheld in case it echoes file content.
+        return filename, None, {
+            "message": f"file could not be parsed (unexpected {type(e).__name__})",
+            "category": "unexpected",
+        }
+
+
+def _error_entry(filename: str, outcome: dict) -> dict:
+    return {"filename": filename, "message": outcome["message"], "category": outcome["category"]}
 
 
 def _store(file_id: str, raw: bytes, result: LoadResult) -> None:
@@ -166,7 +175,7 @@ def parse_single():
             _upload_response_template(),
             store=STORE,
             stats=_stats(),
-            flash_error=f"{escape(filename)}: {escape(outcome)}",
+            flash_errors=[_error_entry(filename, outcome)],
         )
 
     file_id = uuid.uuid4().hex
@@ -184,13 +193,14 @@ def batch_upload():
             continue
         filename, raw, outcome = _parse_upload(file_storage)
         if raw is None:
-            errors.append(f"{filename}: {outcome}")
+            errors.append(_error_entry(filename, outcome))
             continue
         file_id = uuid.uuid4().hex
         _store(file_id, raw, outcome)
 
-    flash_error = "; ".join(errors) if errors else None
-    return render_template(_upload_response_template(), store=STORE, stats=_stats(), flash_error=flash_error)
+    return render_template(
+        _upload_response_template(), store=STORE, stats=_stats(), flash_errors=errors or None
+    )
 
 
 @app.route("/file/<file_id>")
@@ -469,7 +479,7 @@ def _defuse_csv_formulas(df):
     (e.g. "=CMD(...)") into a CSV a researcher later opens in Excel.
     """
     df = df.copy()
-    for column in df.select_dtypes(include=["object", "str"]).columns:
+    for column in df.select_dtypes(include=["object"]).columns:
         df[column] = df[column].map(
             lambda v: ("'" + v) if isinstance(v, str) and v.startswith(_FORMULA_TRIGGER_CHARS) else v
         )

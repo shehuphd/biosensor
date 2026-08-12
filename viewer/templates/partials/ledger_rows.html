@@ -1,5 +1,5 @@
-{% if flash_error %}
-<tr><td colspan="7"><p class="error">{{ flash_error }}</p></td></tr>
+{% if flash_errors %}
+<tr><td colspan="7">{% include "partials/flash_errors.html" %}</td></tr>
 {% endif %}
 
 {% if not store %}

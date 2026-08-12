@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "viewer"))
 
 from preview import build_dataframe_preview  # noqa: E402
 
-from biosensor_io.core import load
+from biosensor.core import load
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

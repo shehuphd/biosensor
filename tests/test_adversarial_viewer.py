@@ -234,3 +234,26 @@ def test_control_characters_stripped_from_display_strings():
     cleaned = viewer_app._sanitize_display(dirty)
     assert "\x00" not in cleaned
     assert "\x1b" not in cleaned
+
+
+# ---------------------------------------------------------------- batch errors are grouped by category
+
+def test_batch_errors_render_grouped_by_category(client):
+    files = [
+        ("empty.csv", b""),                                  # unsupported
+        ("people.csv", b"name,city\nAlice,Lagos\nBob,Accra\n"),  # unsupported
+        ("truncated.pssession", b'{"Measurements": [{"DataSet": {"Val'),  # parse
+    ]
+    resp = client.post(
+        "/batch",
+        data={"files": [(io.BytesIO(content), name) for name, content in files]},
+        content_type="multipart/form-data",
+    )
+    html = resp.get_data(as_text=True)
+    assert 'class="flash-errors"' in html
+    # filter chips carry the per-category counts
+    assert "unsupported (2)" in html
+    assert "parse (1)" in html
+    # each failed file is listed with its category tag
+    assert 'data-cat="unsupported"' in html and 'data-cat="parse"' in html
+    assert "people.csv" in html and "truncated.pssession" in html

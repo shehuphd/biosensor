@@ -1,8 +1,8 @@
 """Header-name and filename based column inference.
 
 Used by the generic CSV reader, and exposed to the viewer so it can present
-an inferred mapping for the user to confirm or correct before committing,
-per the PRD's "infer then confirm" pattern.
+an inferred mapping for the user to confirm or correct before committing
+(infer, then confirm).
 """
 
 from __future__ import annotations

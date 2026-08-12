@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from biosensor_io.readers.base import UnsupportedFormatError
-from biosensor_io.readers.detect import detect_reader
+from biosensor.readers.base import UnsupportedFormatError
+from biosensor.readers.detect import detect_reader
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

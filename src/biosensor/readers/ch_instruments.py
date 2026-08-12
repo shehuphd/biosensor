@@ -11,18 +11,21 @@ from __future__ import annotations
 
 import re
 
-from biosensor_io.readers.base import (
+from biosensor.readers.base import (
     MAX_DATA_ROWS,
+    FileTooLargeError,
     ParseError,
     Reader,
     enforce_size_limit,
 )
-from biosensor_io.schema import Measurement
+from biosensor.schema import Measurement
 
 _KV_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 /()%_.-]*?)\s*=\s*(.+?)\s*$")
 _DATA_HEADER_RE = re.compile(
     r"potential\s*/?\s*v.*current\s*/?\s*a", re.IGNORECASE
 )
+_FIELD_SPLIT_RE = re.compile(r"[,\t]+")
+_LEADING_NUMBER_RE = re.compile(r"^-?\d")
 _SIGNATURE_HINTS = (
     "chi",
     "instrument model",
@@ -89,9 +92,9 @@ class CHInstrumentsReader(Reader):
             if _DATA_HEADER_RE.search(stripped):
                 current_segment += 1
                 continue
-            if "=" in stripped and not re.match(r"^-?\d", stripped):
+            if "=" in stripped and not _LEADING_NUMBER_RE.match(stripped):
                 continue
-            parts = re.split(r"[,\t]+", stripped)
+            parts = _FIELD_SPLIT_RE.split(stripped)
             if len(parts) < 2:
                 continue
             try:
@@ -103,7 +106,7 @@ class CHInstrumentsReader(Reader):
             current_a.append(c)
             cycle_number.append(current_segment)
             if len(potential_v) > MAX_DATA_ROWS:
-                raise ParseError(
+                raise FileTooLargeError(
                     f"{filename}: exceeds {MAX_DATA_ROWS} row limit"
                 )
 
@@ -128,7 +131,7 @@ class CHInstrumentsReader(Reader):
                     technique = candidate
                     break
 
-        header_cols = [c.strip() for c in re.split(r"[,\t]+", header_line)] if header_line else []
+        header_cols = [c.strip() for c in _FIELD_SPLIT_RE.split(header_line)] if header_line else []
         metadata["_column_mapping"] = {
             "potential_v": f'col 1 · "{header_cols[0]}"' if header_cols else "col 1",
             "current_a": f'col 2 · "{header_cols[1]}"' if len(header_cols) > 1 else "col 2",

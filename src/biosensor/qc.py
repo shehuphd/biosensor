@@ -1,18 +1,19 @@
 """Sanity-check heuristics for parsed measurements.
 
-v1 heuristic, per the PRD's open question: a simple curve-shape check
+v1 heuristic: a simple curve-shape check
 (monotonicity, peak presence, expected symmetry) rather than anything
 trained. This is a first pass meant to catch silent parse failures (wrong
 columns, garbage values, truncated data), not to judge assay quality.
-Manual override always available — this only sets an initial status.
+Manual override is always available; this only sets an initial status.
 """
 
 from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
+from itertools import chain
 
-from biosensor_io.schema import Measurement, QCRecord
+from biosensor.schema import Measurement, QCRecord
 
 HEURISTIC_VERSION = "0.1"
 
@@ -50,7 +51,8 @@ def sanity_check(measurement: Measurement) -> QCRecord:
         )
 
     non_finite = any(
-        not math.isfinite(v) for v in (*measurement.potential_v, *measurement.current_a)
+        not math.isfinite(v)
+        for v in chain(measurement.potential_v, measurement.current_a)
     )
     if non_finite:
         return QCRecord(

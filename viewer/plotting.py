@@ -6,7 +6,7 @@ Flask.
 
 from __future__ import annotations
 
-from biosensor_io.schema import Measurement
+from biosensor.schema import Measurement
 
 
 def build_plot_json(m: Measurement) -> dict:

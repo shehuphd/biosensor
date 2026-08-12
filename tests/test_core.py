@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from biosensor_io.core import batch_load, load, to_dataframe
+from biosensor.core import batch_load, load, to_dataframe
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -26,7 +26,8 @@ def test_batch_load_mixed_folder():
     # 4 good formats parse; bad_sample.txt fails
     assert len(batch.results) == 4
     assert len(batch.errors) == 1
-    assert batch.errors[0][0] == "bad_sample.txt"
+    assert batch.errors[0].filename == "bad_sample.txt"
+    assert batch.errors[0].category in ("unsupported", "parse", "corrupt", "unexpected")
 
     df = batch.to_dataframe()
     assert len(df) == sum(r.measurement.n_points for r in batch.results)
@@ -34,3 +35,6 @@ def test_batch_load_mixed_folder():
     qc_df = batch.qc_dataframe()
     assert len(qc_df) == 5  # 4 parsed + 1 error row
     assert (qc_df["sanity_status"] == "failed").sum() >= 1
+    # error rows carry the category; parsed rows leave it blank
+    assert "error_category" in qc_df.columns
+    assert qc_df.loc[qc_df["filename"] == "bad_sample.txt", "error_category"].notna().all()

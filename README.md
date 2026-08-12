@@ -13,8 +13,9 @@ institutional ELN.
 
 - CH Instruments text export
 - Metrohm Nova (Autolab) text/CSV export
-- PalmSens `.pssession` (best-effort — see `src/biosensor_io/readers/palmsens.py`)
-- Generic delimited CSV, with header-based column inference
+- PalmSens `.pssession` (best-effort; see `src/biosensor/readers/palmsens.py`)
+- Generic delimited CSV: a named header, metadata lines before the header, or
+  headerless two-column numeric (potential, current)
 
 Format detection is content-based (file signature and header content), not
 filename-extension based.
@@ -30,7 +31,7 @@ pip install -e ".[dev]"
 ## Library usage
 
 ```python
-from biosensor_io import load, batch_load, to_dataframe
+from biosensor import load, batch_load, to_dataframe
 
 result = load("cv01.txt")
 df = to_dataframe(result.measurement)
@@ -51,7 +52,7 @@ touching the measurement schema.
 ## Viewer
 
 Double-click the launcher for your platform (`launcher.command` on macOS,
-`launcher.sh` on Linux, `launcher.bat` on Windows) — each sets up the venv on
+`launcher.sh` on Linux, `launcher.bat` on Windows). Each sets up the venv on
 first run, then starts the server and opens the browser:
 
 ```bash
@@ -63,24 +64,25 @@ launcher.bat            # Windows
 
 Opens at `http://127.0.0.1:5050`. Three panes: file list on the left (live
 filter, ok/flagged/failed tabs), the CV curve (Plotly, zoom/pan) with
-Dataframe and Overlay tabs in the center, and a parse record — quality
-check, instrument metadata, sample/concentration mapping — on the right.
+Dataframe and Overlay tabs in the center, and a parse record on the right
+(quality check, instrument metadata, sample/concentration mapping).
 Load a single file or an entire folder, correct a wrong column mapping
 in-place (see a live preview before applying), override the quality flag
 manually, and export any file or the whole batch as CSV. Light/dark theme
 toggle in Settings.
 
-Visual design follows `internal/design/` (Tree Design System tokens).
+Visual design follows the Tree Design System, with design tokens under
+`viewer/static/tokens/`.
 
-The viewer is local, single-user, in-memory only — state resets on
+The viewer is local, single-user, in-memory only; state resets on
 restart. This is intentional (see Non-goals below).
 
 ## Tracing
 
 Action-level tracing via [traceact](https://github.com/traceact/traceact)
 (file parse, batch upload, mapping correction, CSV export) writes to
-`data/traces/traces.jsonl` for local debugging — not required to run the
-app, and gitignored.
+`data/traces/traces.jsonl` for local debugging. It isn't required to run the
+app, and it's gitignored.
 
 ## Sanity-check heuristic (v1)
 
@@ -97,7 +99,7 @@ input:
 
 - Format detection inspects file content, never trusts the extension alone
 - Per-file byte and data-row limits bound parsing cost (see `readers/base.py`)
-- Any parse failure — including malformed or adversarial files — degrades
+- Any parse failure, including malformed or adversarial files, degrades
   to a per-file error, never a server crash
 - Filenames, sample IDs, and technique strings derived from file content
   are sanitized before display and CSV export (including a CSV-formula
@@ -131,19 +133,24 @@ source .venv/bin/activate
 pytest
 ```
 
-Fixtures in `tests/fixtures/` are synthetic (generated, not real instrument
-exports) but shaped like each format's real structure, including one
+Fixtures in `tests/fixtures/` are synthetic (generated, not instrument
+exports) but shaped like each format's structure, including one
 unrecognizable file to exercise the error path.
+
+## Documentation
+
+- [USAGE.md](https://github.com/shehuphd/biosensor/blob/main/USAGE.md): the full manual (API, schema, formats, errors)
+- [ARCHITECTURE.md](https://github.com/shehuphd/biosensor/blob/main/ARCHITECTURE.md): how the library and viewer fit together
+- [CHANGELOG.md](https://github.com/shehuphd/biosensor/blob/main/CHANGELOG.md): dated changes per version
 
 ## Project layout
 
 ```
-src/biosensor_io/       # the library: schema, readers, core API, QC heuristic
+src/biosensor/       # the library: schema, readers, core API, QC heuristic
 viewer/                 # Flask + HTMX + Plotly local viewer
 tests/                  # pytest suite + synthetic fixtures
-internal/                # PRD and other planning docs (gitignored)
 ```
 
 ## Author
 
-Built by [Mo Shehu](https://mohammedshehu.com).
+Built by Mo Shehu — mohammedshehu.com

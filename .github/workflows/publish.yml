@@ -1,0 +1,47 @@
+name: Publish to PyPI
+
+# Publishes on a GitHub Release. workflow_dispatch is kept so the build job
+# can be run by hand once (before the PyPI trusted publisher exists) to
+# confirm the wheel builds; the publish job only runs on a real release.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Check wheel ships py.typed
+        run: |
+          python -m pip install --upgrade twine
+          twine check dist/*
+          unzip -l dist/*.whl | grep -q "biosensor/py.typed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment: pypi
+    permissions:
+      id-token: write  # OIDC trusted publishing; no API token stored
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

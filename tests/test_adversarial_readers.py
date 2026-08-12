@@ -11,17 +11,17 @@ import json
 
 import pytest
 
-from biosensor_io.qc import sanity_check
-from biosensor_io.readers.base import (
+from biosensor.qc import sanity_check
+from biosensor.readers.base import (
     MAX_DATA_ROWS,
     MAX_FILE_BYTES,
     ParseError,
     UnsupportedFormatError,
 )
-from biosensor_io.readers.ch_instruments import CHInstrumentsReader
-from biosensor_io.readers.detect import detect_reader
-from biosensor_io.readers.generic_csv import GenericCSVReader
-from biosensor_io.readers.palmsens import PalmSensReader
+from biosensor.readers.ch_instruments import CHInstrumentsReader
+from biosensor.readers.detect import detect_reader
+from biosensor.readers.generic_csv import GenericCSVReader
+from biosensor.readers.palmsens import PalmSensReader
 
 
 # ---------------------------------------------------------------- empty / truncated / garbage input
@@ -195,3 +195,39 @@ def test_ch_instruments_header_with_no_column_names_falls_back_safely():
     mapping = measurement.technique_params.get("_column_mapping")
     assert mapping is not None
     assert "potential_v" in mapping and "current_a" in mapping
+
+
+# ---------------------------------------------------------------- columns must never desync
+
+def test_generic_csv_row_with_unparseable_current_is_skipped_wholesale():
+    # A row whose potential is numeric but whose current is not must drop the
+    # whole row. Appending potential alone would leave the two columns unequal
+    # in length, which Measurement rejects with a ValueError that would escape
+    # as an unhandled crash from load().
+    raw = (
+        b"potential_v,current_a\n"
+        b"0.10,1e-6\n"
+        b"0.20,not_a_number\n"  # potential valid, current junk
+        b"0.30,3e-6\n"
+        b"0.40,4e-6\n"
+        b"0.50,5e-6\n"
+        b"0.60,6e-6\n"
+    )
+    measurement = GenericCSVReader().parse(raw, "desync.csv")
+    assert len(measurement.potential_v) == len(measurement.current_a)
+    assert measurement.n_points == 5  # the junk-current row is gone
+    assert 0.2 not in measurement.potential_v
+
+
+# ---------------------------------------------------------------- deep JSON is a bounded failure
+
+def test_deeply_nested_palmsens_json_raises_parse_error_not_recursion():
+    # A pathologically nested document makes json.loads raise RecursionError,
+    # not JSONDecodeError. The reader must surface that as a ParseError rather
+    # than let it escape as an unhandled crash.
+    payload = "0"
+    for _ in range(3000):
+        payload = "[" + payload + "]"
+    raw = ('{"Measurements":' + payload + "}").encode()
+    with pytest.raises(ParseError):
+        PalmSensReader().parse(raw, "deep.pssession")

@@ -53,6 +53,18 @@
   }
   document.body.addEventListener('htmx:afterSwap', renderAllPlots);
 
+  function filterFlashErrors(btn) {
+    const wrap = btn.closest('.flash-errors');
+    if (!wrap) return;
+    const cat = btn.dataset.cat;
+    wrap.querySelectorAll('.flash-chip').forEach(chip => {
+      chip.classList.toggle('is-active', chip === btn);
+    });
+    wrap.querySelectorAll('.flash-error-item').forEach(item => {
+      item.hidden = !(cat === 'all' || item.dataset.cat === cat);
+    });
+  }
+
   function openMappingModal(fileId) {
     const origin = window.__biosensorView || 'panes';
     htmx.ajax('GET', `/file/${fileId}/mapping/edit?origin=${origin}`, {target: '#modal-root', swap: 'innerHTML'});

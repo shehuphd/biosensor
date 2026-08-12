@@ -5,8 +5,8 @@ Kept separate from app.py so it can be unit tested without Flask.
 
 from __future__ import annotations
 
-from biosensor_io.core import to_dataframe
-from biosensor_io.schema import Measurement
+from biosensor.core import to_dataframe
+from biosensor.schema import Measurement
 
 DEFAULT_PREVIEW_ROWS = 50
 

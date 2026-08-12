@@ -1,0 +1,29 @@
+{% if flash_errors %}
+{% set grouped = flash_errors|groupby('category') %}
+<div class="flash-errors" data-error-count="{{ flash_errors|length }}">
+  <div class="flash-errors-head">
+    <span class="flash-errors-title">
+      {{ flash_errors|length }} file{{ 's' if flash_errors|length != 1 else '' }} could not be loaded
+    </span>
+    <div class="flash-filter" role="group" aria-label="Filter errors by category">
+      <button type="button" class="flash-chip is-active" data-cat="all"
+              onclick="filterFlashErrors(this)">All ({{ flash_errors|length }})</button>
+      {% for cat, items in grouped %}
+      <button type="button" class="flash-chip" data-cat="{{ cat }}"
+              onclick="filterFlashErrors(this)">{{ cat }} ({{ items|length }})</button>
+      {% endfor %}
+    </div>
+  </div>
+  <ul class="flash-errors-list">
+    {% for cat, items in grouped %}
+    {% for e in items %}
+    <li class="flash-error-item" data-cat="{{ cat }}">
+      <span class="flash-error-cat flash-cat-{{ cat }}">{{ cat }}</span>
+      <span class="flash-error-file">{{ e.filename }}</span>
+      <span class="flash-error-msg">{{ e.message }}</span>
+    </li>
+    {% endfor %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}

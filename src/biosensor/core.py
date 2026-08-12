@@ -8,11 +8,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from biosensor_io.qc import sanity_check
-from biosensor_io.readers.base import ParseError
-from biosensor_io.readers.detect import detect_reader
-from biosensor_io.readers.base import UnsupportedFormatError
-from biosensor_io.schema import Measurement, QCRecord
+from biosensor.qc import sanity_check
+from biosensor.readers.base import (
+    ParseError,
+    UnsupportedFormatError,
+    classify_error,
+)
+from biosensor.readers.detect import detect_reader
+from biosensor.schema import Measurement, QCRecord
 
 
 @dataclass
@@ -34,16 +37,22 @@ def load(filepath: str | os.PathLike) -> LoadResult:
 def to_dataframe(measurement: Measurement) -> pd.DataFrame:
     """Expand a Measurement into a long-form dataframe, one row per data point."""
     n = measurement.n_points
+    # Optional numeric columns get an explicit float64 dtype so an all-None
+    # column (a measurement missing that field) stays numeric rather than
+    # object, which keeps batch concat from mixing dtypes across files.
+    def float_na(values):
+        return pd.Series(values, dtype="float64")
+
     return pd.DataFrame(
         {
             "potential_v": measurement.potential_v,
             "current_a": measurement.current_a,
-            "cycle_number": measurement.cycle_number or [None] * n,
-            "scan_rate_v_s": [measurement.scan_rate_v_s] * n,
+            "cycle_number": float_na(measurement.cycle_number or [None] * n),
+            "scan_rate_v_s": float_na([measurement.scan_rate_v_s] * n),
             "technique": [measurement.technique] * n,
             "sample_id": [measurement.sample_id] * n,
             "analyte_name": [measurement.analyte_name] * n,
-            "analyte_concentration": [measurement.analyte_concentration] * n,
+            "analyte_concentration": float_na([measurement.analyte_concentration] * n),
             "concentration_unit": [measurement.concentration_unit] * n,
             "timestamp": [measurement.timestamp] * n,
             "replicate_id": [measurement.replicate_id] * n,
@@ -55,27 +64,46 @@ def to_dataframe(measurement: Measurement) -> pd.DataFrame:
 
 
 @dataclass
+class BatchError:
+    """One file that failed to load, with a category for grouping/filtering.
+
+    `category` is one of the values in `readers.base.ERROR_CATEGORIES`
+    (unsupported / parse / too_large / corrupt / unexpected).
+    """
+
+    filename: str
+    message: str
+    category: str
+
+
+@dataclass
 class BatchLoadResult:
     results: list[LoadResult]
-    errors: list[tuple[str, str]]  # (filename, error message)
+    errors: list[BatchError]
 
     def to_dataframe(self) -> pd.DataFrame:
         frames = [to_dataframe(r.measurement) for r in self.results]
+        frames = [f for f in frames if not f.empty]
         if not frames:
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
     def qc_dataframe(self) -> pd.DataFrame:
-        rows = [r.qc.as_dict() for r in self.results]
-        for filename, message in self.errors:
+        rows = []
+        for r in self.results:
+            row = r.qc.as_dict()
+            row["error_category"] = None
+            rows.append(row)
+        for err in self.errors:
             rows.append(
                 {
-                    "filename": filename,
+                    "filename": err.filename,
                     "parse_timestamp": None,
                     "sanity_status": "failed",
-                    "sanity_reason": message,
+                    "sanity_reason": err.message,
                     "reviewed_by": None,
                     "heuristic_version": None,
+                    "error_category": err.category,
                 }
             )
         return pd.DataFrame(rows)
@@ -84,13 +112,13 @@ class BatchLoadResult:
 def batch_load(directory: str | os.PathLike) -> BatchLoadResult:
     """Load every file in a directory, collecting per-file results and errors.
 
-    A single bad file never aborts the batch: it's recorded in `.errors`
-    (and surfaced in the QC table as sanity_status="failed") so the rest of
-    the folder still loads.
+    A single bad file never aborts the batch: it's recorded in `.errors` as a
+    `BatchError` (and surfaced in the QC table as sanity_status="failed") so
+    the rest of the folder still loads.
     """
     dir_path = Path(directory)
     results: list[LoadResult] = []
-    errors: list[tuple[str, str]] = []
+    errors: list[BatchError] = []
 
     for entry in sorted(dir_path.iterdir()):
         if not entry.is_file():
@@ -98,9 +126,18 @@ def batch_load(directory: str | os.PathLike) -> BatchLoadResult:
         try:
             results.append(load(entry))
         except (ParseError, UnsupportedFormatError, ValueError, OSError) as e:
-            errors.append((entry.name, str(e)))
-        except Exception:
-            # A single malformed/hostile file must never abort the batch.
-            errors.append((entry.name, "file could not be parsed (unexpected format or corrupt data)"))
+            errors.append(BatchError(entry.name, str(e), classify_error(e)))
+        except Exception as e:
+            # A single malformed/hostile file must never abort the batch. The
+            # exception type is safe to name (it isn't file content); the raw
+            # message is not surfaced, since an unforeseen error could echo
+            # untrusted input back into the output.
+            errors.append(
+                BatchError(
+                    entry.name,
+                    f"file could not be parsed (unexpected {type(e).__name__})",
+                    "unexpected",
+                )
+            )
 
     return BatchLoadResult(results=results, errors=errors)

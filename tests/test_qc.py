@@ -1,5 +1,5 @@
-from biosensor_io.qc import sanity_check
-from biosensor_io.schema import Measurement
+from biosensor.qc import sanity_check
+from biosensor.schema import Measurement
 
 
 def _measurement(**overrides):

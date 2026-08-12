@@ -1,17 +1,17 @@
 """Format auto-detection: try each reader's sniff() against file content.
 
-Order matters only as a tie-breaker — sniff() is written per-reader to be
+Order is only a tie-breaker; sniff() is written per-reader to be
 specific enough that false positives are rare. Generic CSV is tried last
 since it's the most permissive.
 """
 
 from __future__ import annotations
 
-from biosensor_io.readers.base import Reader, UnsupportedFormatError
-from biosensor_io.readers.ch_instruments import CHInstrumentsReader
-from biosensor_io.readers.generic_csv import GenericCSVReader
-from biosensor_io.readers.metrohm_nova import MetrohmNovaReader
-from biosensor_io.readers.palmsens import PalmSensReader
+from biosensor.readers.base import Reader, UnsupportedFormatError
+from biosensor.readers.ch_instruments import CHInstrumentsReader
+from biosensor.readers.generic_csv import GenericCSVReader
+from biosensor.readers.metrohm_nova import MetrohmNovaReader
+from biosensor.readers.palmsens import PalmSensReader
 
 READERS: list[Reader] = [
     PalmSensReader(),

@@ -1,10 +1,9 @@
 """Manual column-mapping correction for delimited text exports.
 
-Backs the "Correct column mapping" flow (see internal/design/README.md and
-mockup 1d/1g): when a file's auto-inferred column mapping is wrong (e.g.
-potential/current columns swapped), the user picks the right columns by
-index and this module re-parses the raw bytes against that explicit
-mapping — bypassing the header-keyword inference that got it wrong.
+Backs the "Correct column mapping" flow: when a file's auto-inferred column
+mapping is wrong (e.g. potential/current columns swapped), the user picks the
+right columns by index and this module re-parses the raw bytes against that
+explicit mapping, bypassing the header-keyword inference that got it wrong.
 
 Only meaningful for delimited-text sources (generic_csv, ch_instruments,
 metrohm_nova). PalmSens (.pssession, JSON) has no "columns" to remap.
@@ -15,11 +14,11 @@ from __future__ import annotations
 import csv
 import io
 
-from biosensor_io.readers.base import MAX_DATA_ROWS, ParseError
-from biosensor_io.readers.ch_instruments import _DATA_HEADER_RE as _CHI_DATA_HEADER_RE
-from biosensor_io.readers.columns import infer_from_filename
-from biosensor_io.readers.metrohm_nova import _find_header_row as _nova_find_header_row
-from biosensor_io.schema import Measurement
+from biosensor.readers.base import MAX_DATA_ROWS, ParseError
+from biosensor.readers.ch_instruments import _DATA_HEADER_RE as _CHI_DATA_HEADER_RE
+from biosensor.readers.columns import infer_from_filename
+from biosensor.readers.metrohm_nova import _find_header_row as _nova_find_header_row
+from biosensor.schema import Measurement
 
 CORRECTABLE_SOURCES = {"generic_csv", "ch_instruments", "metrohm_nova"}
 
@@ -55,7 +54,7 @@ def _skip_preamble(text: str, instrument_source: str) -> str:
     CH Instruments and Metrohm Nova exports both prefix the numeric data
     with a block of "Key = Value" (or free-text) metadata lines. Reuse each
     reader's own header-detection so the correction UI's raw preview shows
-    real data rows, not a stretch of instrument metadata.
+    the data rows themselves, not a stretch of instrument metadata.
     """
     lines = text.splitlines()
     if instrument_source == "ch_instruments":
