@@ -1,4 +1,4 @@
-"""biosensor viewer: local Flask + HTMX app for parsing and sanity-checking
+"""Biosensor viewer: local Flask + HTMX app for parsing and sanity-checking
 electrochemical exports.
 
 Single-user, local-only (no auth, no cloud deployment). State lives in an

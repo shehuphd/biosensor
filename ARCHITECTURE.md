@@ -1,4 +1,4 @@
-# biosensor Architecture
+# Biosensor Architecture
 
 Two layers: a library that turns instrument files into one schema, and a local
 viewer that wraps the library for visual verification. The viewer depends on
@@ -8,7 +8,7 @@ the library; the library has no knowledge of the viewer.
 
 ```mermaid
 flowchart TD
-    subgraph lib[biosensor library]
+    subgraph lib[Biosensor library]
         raw[Raw file bytes] --> detect[detect_reader]
         detect -->|sniff by content| reader[Format reader]
         reader -->|parse| meas[Measurement]

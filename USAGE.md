@@ -1,4 +1,4 @@
-# biosensor Usage
+# Biosensor Usage
 
 The full manual. For a one-minute overview and install, see
 [README.md](https://github.com/shehuphd/biosensor/blob/main/README.md).

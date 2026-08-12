@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to biosensor, newest first. Versions follow semantic
+All notable changes to Biosensor, newest first. Versions follow semantic
 versioning.
 
 ## 1.0.0 — 2026-08-12
