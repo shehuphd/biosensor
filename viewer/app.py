@@ -37,7 +37,8 @@ from mapping import (
     read_raw_table,
     reparse_with_manual_mapping,
 )
-from plotting import build_overlay_json, build_plot_json
+from analysis import METHODS as PEAK_METHODS
+from plotting import build_calibration_json, build_overlay_json, build_plot_json
 from preview import build_dataframe_preview
 
 _TRACES_DIR = Path(__file__).resolve().parent.parent / "data" / "traces"
@@ -79,6 +80,10 @@ def _overlay_series_for(file_id: str) -> list:
 
 app.jinja_env.globals["overlay_series"] = _overlay_series_for
 app.jinja_env.globals["overlay_json"] = build_overlay_json
+app.jinja_env.globals["calibration_json"] = build_calibration_json
+app.jinja_env.globals["calibration_methods"] = lambda: [
+    (name, spec["label"]) for name, spec in PEAK_METHODS.items()
+]
 
 _DETECTION_LABELS = {
     "ch_instruments": "header signature",

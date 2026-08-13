@@ -78,7 +78,10 @@ rows in the page while CSV export covers the full file; and an Overlay tab), and
 a parse record on the right (quality check, instrument metadata,
 sample/concentration mapping). The Overlay tab draws every loaded file of the
 same sample on one plot, colored and ordered by concentration, for the
-dose-response view. Load a single file or an entire folder, correct a wrong
+dose-response view, with a calibration inset below it plotting peak current
+against concentration and a linear fit. A method dropdown chooses how peak
+current is measured: raw maximum (not baseline-corrected, the default) or a
+linear pre-peak baseline. Load a single file or an entire folder, correct a wrong
 column mapping in-place (see a live preview before applying), override the
 quality flag manually, and export any file or the whole batch as CSV. The open
 file is kept in the URL, so a reload reopens it. Light/dark theme toggle in

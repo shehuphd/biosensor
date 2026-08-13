@@ -3,6 +3,25 @@
 All notable changes to Biosensor, newest first. Versions follow semantic
 versioning.
 
+## 1.3.0 - 2026-08-13
+
+Adds a calibration inset to the viewer's Overlay tab. No breaking API changes;
+the `Measurement` schema is unchanged.
+
+### Viewer
+- Calibration inset: below the concentration overlay, a plot of peak current
+  against concentration with one point per file and a linear fit reporting its
+  R². It appears for the same samples the overlay does (two or more
+  concentrations of one `sample_id` + `analyte_name`).
+- A method dropdown selects how peak current is measured. Raw max (not
+  baseline-corrected) is the default and makes no baseline assumption; linear
+  baseline (pre-peak) fits a line to the pre-peak foot, extrapolates it under
+  the peak, and subtracts it. Both are offered because baseline estimation is
+  unsettled, so the researcher chooses the convention their reporting expects.
+- Point hovers state the method and its numbers: the raw method labels itself
+  uncorrected; the baseline method shows the peak, the baseline at the peak, and
+  the corrected height. Switching methods redraws client-side with no reload.
+
 ## 1.2.0 - 2026-08-13
 
 Adds the viewer's Overlay tab and reads sample identity from file content. No

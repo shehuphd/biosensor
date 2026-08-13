@@ -225,7 +225,19 @@ The center pane has three tabs:
   plot, colored and ordered by concentration, for the dose-response view.
   Grouping is by `sample_id` and `analyte_name`, read from file content;
   correcting a sample or concentration under Sample mapping regroups it. A
-  sample with fewer than two concentrations shows a short empty state.
+  sample with fewer than two concentrations shows a short empty state. Below the
+  overlay is a **calibration inset**: one point per file plotting peak current
+  against concentration, with a linear fit and its R². A method dropdown selects
+  how peak current is measured:
+
+  | Method | What it reports |
+  | --- | --- |
+  | Raw max (not baseline-corrected) | The largest current in the sweep, background included. The default, because it makes no assumption about the baseline. Point hovers label it as uncorrected. |
+  | Linear baseline (pre-peak) | Fits a line to the pre-peak foot, extrapolates it under the peak, and subtracts it. Point hovers show the peak, the baseline at the peak, and the corrected height. |
+
+  Both methods are shown because baseline estimation is an unsettled problem;
+  the researcher picks the one their reporting convention expects. Switching is
+  instant and needs no reload.
 
 The open file is kept in the URL, so reloading the page reopens it.
 

@@ -80,6 +80,31 @@
       file, low to high; the legend lists those concentrations. Change a file's sample or concentration under
       <strong>Sample mapping</strong> and this overlay regroups.
     </p>
+
+    <div class="calibration-block">
+      <div class="card-header">
+        <span class="card-eyebrow">Calibration &mdash; peak current vs concentration</span>
+        <label class="calib-method-label">Peak current:
+          <select class="calib-method" onchange="renderCalibration(this.value)">
+            {% for name, label in calibration_methods() %}
+            <option value="{{ name }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div id="calibration-div"></div>
+      {% for name, label in calibration_methods() %}
+      <script class="calibration-data-json" data-method="{{ name }}" type="application/json">
+        {{ calibration_json(series, name) | tojson }}
+      </script>
+      {% endfor %}
+      <p class="provenance-note">
+        Each point is one file's peak current at its concentration, colored to match the fan above. Raw max includes
+        the background current, so the 0 M point sits above zero; the linear pre-peak method subtracts an extrapolated
+        baseline (hover a point to see peak, baseline, and ip). The dashed line is a linear fit; dose-response often
+        saturates, so treat it as a first approximation, not a calibrated readout.
+      </p>
+    </div>
     {% else %}
     <div class="card-header">
       <span class="card-eyebrow">Overlay — same sample, by concentration</span>

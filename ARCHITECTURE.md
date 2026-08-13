@@ -21,7 +21,7 @@ flowchart TD
     subgraph app[viewer Flask + HTMX]
         upload[Upload / folder] --> store[in-memory STORE]
         store --> plot[Plotly curve]
-        store --> overlay[Concentration overlay across sample]
+        store --> overlay[Concentration overlay + calibration inset across sample]
         store --> record[Parse record + QC]
         store --> mapfix[Mapping correction]
         store --> export[CSV export]
@@ -64,7 +64,8 @@ single user, in-memory only.
 | `/file/<id>/mapping/*` | `app.py`, `mapping.py` | Infer, preview, and apply a corrected column mapping by re-parsing raw bytes |
 | `/dataframe`, `/file/<id>/dataframe` | `app.py` | CSV export (batch or single) with formula-injection defusing |
 | `/ledger`, `/ledger/file/<id>` | `app.py` | Batch ledger view |
-| Plot / preview | `plotting.py`, `preview.py` | Build the single-curve figure, the concentration-overlay figure (`build_overlay_json`), and the dataframe preview |
+| Plot / preview | `plotting.py`, `preview.py` | Build the single-curve figure, the concentration-overlay figure (`build_overlay_json`), the calibration figure (`build_calibration_json`), and the dataframe preview |
+| Peak current | `analysis.py` | Peak-current methods (`raw_max`, `linear_prepeak`) behind a `METHODS` registry, consumed by the calibration figure and switchable in the viewer |
 
 ### Mapping correction
 

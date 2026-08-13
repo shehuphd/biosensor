@@ -6,7 +6,25 @@ Flask.
 
 from __future__ import annotations
 
+from analysis import METHODS, _linfit
 from biosensor.schema import Measurement
+
+
+def _format_current(value: float) -> str:
+    """Human label for a current, scaled to a tidy SI prefix."""
+    x = abs(value)
+    if x == 0:
+        return "0 A"
+    for factor, suffix in (
+        (1.0, "A"),
+        (1e-3, "mA"),
+        (1e-6, "µA"),
+        (1e-9, "nA"),
+        (1e-12, "pA"),
+    ):
+        if x >= factor:
+            return f"{value / factor:.3g} {suffix}"
+    return f"{value:.3g} A"
 
 
 def _format_concentration(value: float, unit: str | None) -> str:
@@ -79,6 +97,88 @@ def build_overlay_json(measurements: list[Measurement]) -> dict | None:
         "legend": {"title": {"text": "Concentration"}},
     }
     return {"data": traces, "layout": layout}
+
+
+def build_calibration_json(measurements: list[Measurement], method: str = "raw_max") -> dict | None:
+    """Peak current vs concentration for one sample, under a chosen peak method.
+
+    One point per file (x = concentration, y = peak current), colored to match
+    the overlay, plus a linear fit and its R-squared. Returns ``None`` when
+    fewer than two distinct concentrations are present, matching the overlay.
+    Each point's hover states what was measured (raw peak, and for a baseline
+    method the peak, baseline, and resulting ip), so the method is never hidden.
+    """
+    if method not in METHODS:
+        method = "raw_max"
+    fn = METHODS[method]["fn"]
+
+    rows = []
+    for m in measurements:
+        if m.analyte_concentration is None:
+            continue
+        rows.append((m.analyte_concentration, fn(m), m))
+
+    distinct = sorted({r[0] for r in rows})
+    if len(distinct) < 2:
+        return None
+
+    rows.sort(key=lambda r: r[0])
+    n = len(distinct)
+    xs = [r[0] for r in rows]
+    ys = [r[1].ip for r in rows]
+    colors = [_sequential_color(distinct.index(r[0]) / (n - 1)) for r in rows]
+
+    texts = []
+    for conc, pr, m in rows:
+        label = _format_concentration(conc, m.concentration_unit)
+        if method == "raw_max":
+            texts.append(
+                f"{label}<br>peak current (raw max): {_format_current(pr.peak_current)}"
+                f"<br>not baseline-corrected"
+            )
+        else:
+            texts.append(
+                f"{label}<br>peak: {_format_current(pr.peak_current)}"
+                f"<br>baseline: {_format_current(pr.baseline_at_peak)}"
+                f"<br>ip: {_format_current(pr.ip)}"
+            )
+
+    slope, intercept, r2 = _linfit(xs, ys)
+    fit_x = [xs[0], xs[-1]]
+    fit_y = [slope * fit_x[0] + intercept, slope * fit_x[1] + intercept]
+
+    scatter = {
+        "x": xs,
+        "y": ys,
+        "text": texts,
+        "mode": "markers",
+        "type": "scatter",
+        "name": "peak current",
+        "marker": {"color": colors, "size": 11, "line": {"color": "#3a3a3a", "width": 1}},
+        "hovertemplate": "%{text}<extra></extra>",
+    }
+    fit = {
+        "x": fit_x,
+        "y": fit_y,
+        "mode": "lines",
+        "type": "scatter",
+        "name": f"linear fit (R²={r2:.3f})",
+        "line": {"color": "#8a8a8a", "dash": "dash"},
+        "hovertemplate": (
+            "linear fit, R²=%.3f<br>dose-response often saturates; "
+            "treat this as a first approximation<extra></extra>" % r2
+        ),
+    }
+    unit = next((m.concentration_unit for _, _, m in rows), None) or "M"
+    layout = {
+        "xaxis": {"title": f"Concentration ({unit})", "tickformat": ".2s"},
+        "yaxis": {"title": "Peak current (A)", "tickformat": ".2s"},
+        "margin": {"t": 30, "r": 20, "b": 50, "l": 70},
+        "hovermode": "closest",
+        "showlegend": True,
+        "legend": {"orientation": "h", "y": -0.25},
+    }
+    return {"data": [scatter, fit], "layout": layout, "method": method, "r2": r2}
 
 
 def build_plot_json(m: Measurement) -> dict:

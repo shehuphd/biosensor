@@ -96,6 +96,8 @@
       });
       // Draw the tab's plot now that its container is visible (the Overlay plot
       // is rendered lazily on first reveal so it's sized and interactive).
+      // renderPlotsIn also draws the Overlay tab's calibration inset when that
+      // container becomes visible.
       renderPlotsIn(shown);
     }
 
