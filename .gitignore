@@ -1,6 +1,8 @@
+# Internal notes and local data.
 project/
 data/traces/
 
+# Python.
 .venv/
 __pycache__/
 *.pyc
@@ -8,4 +10,41 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Local environment.
+.env
+.env.*
+
+# AI assistant tool state (Claude, Codex, Grok, Cursor, Aider, etc.).
+.claude/
+.codex/
+.grok/
+.cursor/
+.cursorrules
+.aider*
+.continue/
+.gemini/
+.windsurf/
+
+# macOS and system files.
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+__MACOSX/
+Thumbs.db
+Desktop.ini
+
+# Build artifacts and logs.
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor metadata.
+.idea/
+.vscode/
