@@ -85,10 +85,10 @@ self-describing.
 | `scan_rate_v_s` | float or None | Scan rate, V/s |
 | `cycle_number` | list[int] or None | Per-point cycle index |
 | `technique` | str or None | e.g. "Cyclic Voltammetry" |
-| `sample_id` | str or None | Inferred from header or filename |
-| `analyte_name` | str or None | e.g. "IL6" |
-| `analyte_concentration` | float or None | Populated when the source or mapping supplies it |
-| `concentration_unit` | str or None | e.g. "pM" |
+| `sample_id` | str or None | Read from file content, or set in the viewer's Sample mapping |
+| `analyte_name` | str or None | e.g. "interleukin-6", read from file content |
+| `analyte_concentration` | float or None | Populated when the file content or the viewer's Sample mapping supplies it |
+| `concentration_unit` | str or None | e.g. "M" |
 | `timestamp` | datetime or None | Parsed from file metadata when present |
 | `replicate_id` | str or None | e.g. "r01" |
 | `instrument_source` | str | Which reader parsed it |
@@ -191,6 +191,11 @@ Readers treat every file as untrusted input:
 |---|---|---|
 | Max bytes read per file | 25 MB | `readers/base.py` |
 | Max data rows parsed | 200,000 | `readers/base.py` |
+| Dataframe rows shown in the viewer preview | 2,000 | `viewer/templates/partials/detail.html` |
+
+The 2,000-row cap is a display limit for the Dataframe tab only, so a large
+file's preview stays responsive; the row search covers those shown rows, and
+the CSV export always writes every parsed row.
 
 Detection is content-based, no reader executes embedded macros or scripts, and
 any parse failure degrades to a per-file error rather than a crash.
@@ -210,4 +215,18 @@ with a live preview, override the quality flag, and export a single file or
 the whole batch as CSV. CSV export defuses spreadsheet-formula injection in any
 text field derived from file content.
 
-Built by Mo Shehu, mohammedshehu.com
+The center pane has three tabs:
+
+- **Curve**: the file's voltammogram (current vs potential), one trace per
+  cycle.
+- **Dataframe**: the parsed rows with an instant search box; the preview
+  shows up to 2,000 rows in the page, and the CSV export covers the full file.
+- **Overlay**: every loaded file that shares this file's sample, drawn on one
+  plot, colored and ordered by concentration, for the dose-response view.
+  Grouping is by `sample_id` and `analyte_name`, read from file content;
+  correcting a sample or concentration under Sample mapping regroups it. A
+  sample with fewer than two concentrations shows a short empty state.
+
+The open file is kept in the URL, so reloading the page reopens it.
+
+By [Mo Shehu](https://mohammedshehu.com)

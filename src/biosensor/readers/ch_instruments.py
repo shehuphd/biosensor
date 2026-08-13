@@ -137,12 +137,29 @@ class CHInstrumentsReader(Reader):
             "current_a": f'col 2 · "{header_cols[1]}"' if len(header_cols) > 1 else "col 2",
         }
 
+        # Sample identity read from the file body, never the filename: these
+        # drive the overlay's per-sample grouping and its concentration axis.
+        sample_id = metadata.get("Sample ID") or None
+        analyte_name = metadata.get("Analyte") or None
+        analyte_concentration = None
+        concentration_unit = None
+        if "Concentration (M)" in metadata:
+            try:
+                analyte_concentration = float(metadata["Concentration (M)"])
+                concentration_unit = "M"
+            except ValueError:
+                pass
+
         return Measurement(
             potential_v=potential_v,
             current_a=current_a,
             cycle_number=cycle_number,
             scan_rate_v_s=scan_rate,
             technique=technique,
+            sample_id=sample_id,
+            analyte_name=analyte_name,
+            analyte_concentration=analyte_concentration,
+            concentration_unit=concentration_unit,
             technique_params=metadata,
             instrument_source="ch_instruments",
             source_filename=filename,

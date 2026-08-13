@@ -4,6 +4,9 @@ Data Source: CHI600E Electrochemical Analyzer
 Instrument Model: CHI600E
 
 Cyclic Voltammetry
+Sample ID = ferrocene reference
+Analyte = ferrocene
+Concentration (M) = 1e-3
 
 Init E (V) = -0.3
 High E (V) = 0.6

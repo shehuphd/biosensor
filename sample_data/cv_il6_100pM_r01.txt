@@ -4,6 +4,9 @@ Data Source: CHI600E Electrochemical Analyzer
 Instrument Model: CHI600E
 
 Cyclic Voltammetry
+Sample ID = IL-6 dilution series
+Analyte = interleukin-6
+Concentration (M) = 1e-10
 
 Init E (V) = -0.5
 High E (V) = 0.5

@@ -4,6 +4,7 @@ Data Source: CHI600E Electrochemical Analyzer
 Instrument Model: CHI600E
 
 Cyclic Voltammetry
+Sample ID = buffer blank
 
 Init E (V) = -0.5
 High E (V) = 0.5

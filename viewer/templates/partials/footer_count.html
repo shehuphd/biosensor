@@ -1,1 +1,1 @@
-{% if stats.unconfirmed %}{{ stats.unconfirmed }} file{{ "s" if stats.unconfirmed != 1 else "" }} still need{{ "" if stats.unconfirmed != 1 else "s" }} a confirmed sample mapping{% else %}all sample mappings confirmed{% endif %}
+{% if stats.unconfirmed %}<button type="button" class="footer-action" onclick="toggleUnconfirmedFilter()" title="Show only these files">{{ stats.unconfirmed }} file{{ "s" if stats.unconfirmed != 1 else "" }} still need{{ "" if stats.unconfirmed != 1 else "s" }} a confirmed sample mapping</button>{% else %}all sample mappings confirmed{% endif %}

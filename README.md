@@ -72,13 +72,17 @@ launcher.bat            # Windows
 ```
 
 Opens at `http://127.0.0.1:5050`. Three panes: file list on the left (live
-filter, ok/flagged/failed tabs), the CV curve (Plotly, zoom/pan) with a
-Dataframe tab in the center, and a parse record on the right
-(quality check, instrument metadata, sample/concentration mapping).
-Load a single file or an entire folder, correct a wrong column mapping
-in-place (see a live preview before applying), override the quality flag
-manually, and export any file or the whole batch as CSV. Light/dark theme
-toggle in Settings. htmx, Plotly, and the IBM Plex fonts are vendored under
+filter, ok/flagged/failed tabs), the center with three tabs (the CV curve in
+Plotly with zoom/pan; a Dataframe tab with row search, previewing up to 2,000
+rows in the page while CSV export covers the full file; and an Overlay tab), and
+a parse record on the right (quality check, instrument metadata,
+sample/concentration mapping). The Overlay tab draws every loaded file of the
+same sample on one plot, colored and ordered by concentration, for the
+dose-response view. Load a single file or an entire folder, correct a wrong
+column mapping in-place (see a live preview before applying), override the
+quality flag manually, and export any file or the whole batch as CSV. The open
+file is kept in the URL, so a reload reopens it. Light/dark theme toggle in
+Settings. htmx, Plotly, and the IBM Plex fonts are vendored under
 `viewer/static/vendor/`, so the viewer runs fully offline with no CDN
 dependency. (Fonts are IBM Plex, under the SIL Open Font License 1.1; see
 `viewer/static/vendor/fonts/OFL.txt`.)
@@ -126,12 +130,13 @@ is the v1 target, not exhaustive vendor coverage.
 
 ## Sample data
 
-`sample_data/` has a synthetic ~27-file batch (all four formats) for
-exercising the viewer by hand: an IL6 immunosensor concentration series
-(CH Instruments, peak height scales with concentration), ferricyanide and
-blank references, Metrohm Nova DPV/CV, PalmSens sessions, a well-formed generic
-CSV, and two files that deliberately fail to parse (to exercise the batch
-error path). Point "Load a folder" at it. Regenerate with:
+`sample_data/` has a synthetic 27-file batch (all four formats) for
+exercising the viewer by hand: an IL-6 immunosensor concentration series
+(CH Instruments, with sample and concentration carried in each file's contents,
+peak height scaling with concentration, which the Overlay tab draws as a
+dose-response fan), ferricyanide and blank references, Metrohm Nova DPV/CV,
+PalmSens sessions, a well-formed generic CSV, and two files that deliberately
+fail to parse (to exercise the batch error path). Point "Load a folder" at it. Regenerate with:
 
 ```bash
 source .venv/bin/activate
@@ -165,4 +170,4 @@ tests/                  # pytest suite + synthetic fixtures
 
 ## Author
 
-Built by Mo Shehu, mohammedshehu.com
+By [Mo Shehu](https://mohammedshehu.com)

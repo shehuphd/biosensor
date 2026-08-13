@@ -86,15 +86,17 @@
   {% include "partials/scripts_common.html" %}
   <script>
     function showView(view) {
+      let shown = null;
       document.querySelectorAll('.detail-view').forEach(el => {
         el.hidden = el.id !== `${view}-view`;
+        if (!el.hidden) shown = el;
       });
       document.querySelectorAll('.view-tabs button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === view);
       });
-      if (view === 'plot') {
-        window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-      }
+      // Draw the tab's plot now that its container is visible (the Overlay plot
+      // is rendered lazily on first reveal so it's sized and interactive).
+      renderPlotsIn(shown);
     }
 
     let statusFilter = 'all';
@@ -110,20 +112,51 @@
       filterText = text.toLowerCase();
       applyFileFilters();
     }
+    // When set, the list narrows to files whose sample mapping is unconfirmed.
+    // Toggled by clicking the footer count, which is the actionable route to
+    // the exact files that "still need a confirmed sample mapping".
+    let unconfirmedOnly = false;
+    function toggleUnconfirmedFilter() {
+      unconfirmedOnly = !unconfirmedOnly;
+      const footer = document.getElementById('footer-mapping-count');
+      if (footer) footer.classList.toggle('active-filter', unconfirmedOnly);
+      applyFileFilters();
+    }
     function applyFileFilters() {
       const rows = document.querySelectorAll('.file-row');
       let visible = 0;
       rows.forEach(row => {
         const matchesStatus = statusFilter === 'all' || row.dataset.status === statusFilter;
         const matchesText = !filterText || row.dataset.search.includes(filterText);
-        const show = matchesStatus && matchesText;
+        const matchesMapping = !unconfirmedOnly || row.dataset.confirmed === 'false';
+        const show = matchesStatus && matchesText && matchesMapping;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
       const emptyMsg = document.getElementById('files-empty-filtered');
       if (emptyMsg) emptyMsg.hidden = visible !== 0;
+      // Live count so any active filter is visible even when the list looks
+      // similar (e.g. every file is still unconfirmed).
+      const label = document.getElementById('files-count-label');
+      if (label) {
+        const total = label.dataset.total;
+        label.textContent = unconfirmedOnly
+          ? `${visible} unconfirmed of ${total} files`
+          : `${visible} of ${total} files`;
+      }
     }
-    document.body.addEventListener('htmx:afterSwap', applyFileFilters);
+    // A table re-render (upload, remove, QC change) replaces the rows, dropping
+    // the .selected class; repaint it from the tracked id so the current file
+    // stays visibly marked.
+    function reapplySelection() {
+      if (!selectedFileId) return;
+      const row = document.querySelector(`.file-row[data-file-id="${selectedFileId}"]`);
+      if (row) row.classList.add('selected');
+    }
+    document.body.addEventListener('htmx:afterSwap', function () {
+      applyFileFilters();
+      reapplySelection();
+    });
 
     function collapsePane(side) {
       const paneId = side === 'left' ? 'left-pane' : 'right-pane';
@@ -139,13 +172,35 @@
 
     // ---------------------------------------------------------------- keyboard shortcuts
     let selectedFileId = null;
-    function selectFileRow(row) {
+    // Mouse click on a row triggers hx-get directly; this only tracks the id and
+    // paints the selection so the current file is always visually marked.
+    function markSelected(row) {
       if (!row) return;
       document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
       row.classList.add('selected');
       selectedFileId = row.dataset.fileId;
+      // Put the open file in the URL so a reload (which keeps the in-memory
+      // store) reopens it instead of dropping back to the empty state.
+      history.replaceState(null, '', '#file=' + selectedFileId);
+    }
+    function fileIdFromUrl() {
+      const m = location.hash.match(/file=([a-f0-9]+)/);
+      return m ? m[1] : null;
+    }
+    function restoreSelectionFromUrl() {
+      const id = fileIdFromUrl();
+      if (!id) return;
+      const row = document.querySelector(`.file-row[data-file-id="${id}"]`);
+      // Use selectFileRow (explicit htmx.ajax) rather than row.click(): on a
+      // hard reload htmx may not have wired the row's click trigger yet, so a
+      // native click would paint the highlight but never fetch the detail.
+      if (row) selectFileRow(row);
+    }
+    function selectFileRow(row) {
+      if (!row) return;
+      markSelected(row);
       row.scrollIntoView({block: 'nearest'});
-      htmx.ajax('GET', `/file/${selectedFileId}`, {target: '#plot-pane', swap: 'innerHTML'});
+      htmx.ajax('GET', `/file/${selectedFileId}`, {target: '#plot-pane', swap: 'outerHTML'});
     }
     document.addEventListener('keydown', function (e) {
       const tag = (e.target.tagName || '').toLowerCase();
@@ -162,7 +217,7 @@
         e.preventDefault();
         const status = {'1': 'ok', '2': 'flagged', '3': 'failed'}[e.key];
         htmx.ajax('POST', `/file/${selectedFileId}/review`, {
-          target: '#plot-pane', swap: 'innerHTML',
+          target: '#plot-pane', swap: 'outerHTML',
           values: {sanity_status: status, reviewed_by: 'manual'},
         });
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && selectedFileId) {
@@ -175,6 +230,12 @@
         htmx.ajax('DELETE', `/file/${goneId}`, {target: '#batch-table', swap: 'innerHTML'});
       }
     });
+
+    // Reopen the file named in the URL once htmx is initialized and the list
+    // has rendered. window 'load' guarantees both, even on a hard reload where
+    // htmx wires up later than this inline script runs.
+    if (document.readyState === 'complete') restoreSelectionFromUrl();
+    else window.addEventListener('load', restoreSelectionFromUrl);
   </script>
 </body>
 </html>

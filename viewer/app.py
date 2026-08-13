@@ -37,7 +37,7 @@ from mapping import (
     read_raw_table,
     reparse_with_manual_mapping,
 )
-from plotting import build_plot_json
+from plotting import build_overlay_json, build_plot_json
 from preview import build_dataframe_preview
 
 _TRACES_DIR = Path(__file__).resolve().parent.parent / "data" / "traces"
@@ -56,6 +56,30 @@ app.jinja_env.globals["app_version"] = biosensor_version
 app.jinja_env.globals["plot_json"] = build_plot_json
 app.jinja_env.globals["dataframe_preview"] = build_dataframe_preview
 
+
+def _overlay_series_for(file_id: str) -> list:
+    """Peers of a file that share its sample: same sample_id and analyte_name.
+
+    Grouping is read from live store values, so a user's in-place correction to
+    a sample_id or concentration reshapes the overlay on the next render.
+    """
+    entry = STORE.get(file_id)
+    if entry is None:
+        return []
+    m = entry["result"].measurement
+    if not m.sample_id:
+        return []
+    return [
+        e["result"].measurement
+        for e in STORE.values()
+        if e["result"].measurement.sample_id == m.sample_id
+        and e["result"].measurement.analyte_name == m.analyte_name
+    ]
+
+
+app.jinja_env.globals["overlay_series"] = _overlay_series_for
+app.jinja_env.globals["overlay_json"] = build_overlay_json
+
 _DETECTION_LABELS = {
     "ch_instruments": "header signature",
     "metrohm_nova": "header signature",
@@ -63,8 +87,12 @@ _DETECTION_LABELS = {
     "palmsens": "content signature",
 }
 app.jinja_env.globals["detection_label"] = lambda source: _DETECTION_LABELS.get(source, "content signature")
+# Sample identity is surfaced (and editable) in the Sample mapping panel, so
+# hide those raw keys from the read-only Technique parameters list to avoid a
+# confusing second copy.
+_SAMPLE_KEYS = {"Sample ID", "Analyte", "Concentration (M)"}
 app.jinja_env.globals["visible_params"] = lambda params: {
-    k: v for k, v in (params or {}).items() if not k.startswith("_")
+    k: v for k, v in (params or {}).items() if not k.startswith("_") and k not in _SAMPLE_KEYS
 }
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -304,6 +332,8 @@ def update_mapping(file_id: str):
         correctable=updated.instrument_source in CORRECTABLE_SOURCES,
         stats_oob=True,
         stats=_stats(),
+        store=STORE,
+        selected_id=file_id,
     )
 
 
@@ -328,6 +358,8 @@ def review_override(file_id: str):
         correctable=entry["result"].measurement.instrument_source in CORRECTABLE_SOURCES,
         stats_oob=True,
         stats=_stats(),
+        store=STORE,
+        selected_id=file_id,
     )
 
 

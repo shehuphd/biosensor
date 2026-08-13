@@ -34,24 +34,37 @@
   }
   initSettingsControls();
 
-  function renderAllPlots() {
-    // Deferred a frame: right after an (OOB) swap the browser hasn't
-    // committed layout for the new nodes yet, so Plotly's container
-    // measurement can read a stale/unbounded height and render huge.
+  function renderPlot(el) {
+    // A Plotly chart drawn into a hidden (display:none) container measures 0
+    // width and renders mis-sized: legend juts, axes squash, and it won't take
+    // pointer events until forced to remeasure. So only render a plot once its
+    // container is actually visible, and remember we've done it.
+    const target = document.getElementById(el.dataset.target);
+    if (!target || target.offsetParent === null || el.dataset.rendered === '1') return;
+    try {
+      const payload = JSON.parse(el.textContent);
+      Plotly.newPlot(target, payload.data, payload.layout, {responsive: true});
+      el.dataset.rendered = '1';
+    } catch (e) {
+      console.error('plot render failed', e);
+    }
+  }
+  function renderVisiblePlots() {
+    // Deferred a frame: right after an (OOB) swap the browser hasn't committed
+    // layout for the new nodes yet, so a container measurement can read a
+    // stale/unbounded height and render huge.
     window.requestAnimationFrame(() => {
-      document.querySelectorAll('.plot-data-json').forEach(el => {
-        const target = document.getElementById(el.dataset.target);
-        if (!target) return;
-        try {
-          const payload = JSON.parse(el.textContent);
-          Plotly.newPlot(target, payload.data, payload.layout, {responsive: true});
-        } catch (e) {
-          console.error('plot render failed', e);
-        }
-      });
+      document.querySelectorAll('.plot-data-json').forEach(renderPlot);
     });
   }
-  document.body.addEventListener('htmx:afterSwap', renderAllPlots);
+  // Render any not-yet-drawn plots inside a container that just became visible
+  // (e.g. switching to the Overlay tab), then let responsive resize settle them.
+  function renderPlotsIn(container) {
+    if (!container) return;
+    container.querySelectorAll('.plot-data-json').forEach(renderPlot);
+    window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+  document.body.addEventListener('htmx:afterSwap', renderVisiblePlots);
 
   // The primary (accent) toolbar action follows what's actionable: with no
   // files loaded there's nothing to export, so Upload carries the accent;
@@ -67,6 +80,31 @@
   }
   syncPrimaryAction();
   document.body.addEventListener('htmx:afterSwap', syncPrimaryAction);
+
+  function filterDfRows(input) {
+    const q = input.value.trim().toLowerCase();
+    const view = input.closest('.detail-view');
+    const rows = view.querySelectorAll('.df-table tbody tr:not(.df-empty-row)');
+    let visible = 0;
+    rows.forEach(tr => {
+      const show = !q || tr.textContent.toLowerCase().includes(q);
+      tr.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const emptyRow = view.querySelector('.df-empty-row');
+    if (emptyRow) emptyRow.hidden = visible !== 0;
+    const count = document.getElementById('df-count');
+    if (count) {
+      const total = Number(count.dataset.total).toLocaleString();
+      const shown = Number(count.dataset.shown).toLocaleString();
+      const truncated = count.dataset.truncated === 'true';
+      if (q) {
+        count.textContent = `${visible.toLocaleString()} of ${truncated ? shown + ' shown' : total} rows`;
+      } else {
+        count.textContent = truncated ? `First ${shown} of ${total} rows` : `${total} rows`;
+      }
+    }
+  }
 
   function filterFlashErrors(btn) {
     const wrap = btn.closest('.flash-errors');

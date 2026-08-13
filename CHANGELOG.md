@@ -3,6 +3,48 @@
 All notable changes to Biosensor, newest first. Versions follow semantic
 versioning.
 
+## 1.2.0 - 2026-08-13
+
+Adds the viewer's Overlay tab and reads sample identity from file content. No
+breaking API changes; the `Measurement` schema is unchanged.
+
+### Library
+- The CH Instruments reader now reads sample identity from the file body:
+  `Sample ID`, `Analyte`, and `Concentration (M)` metadata lines populate
+  `sample_id`, `analyte_name`, `analyte_concentration`, and
+  `concentration_unit`. These come from the file's contents, never its
+  filename, so a renamed file keeps the correct values.
+
+### Viewer
+- Overlay tab: overlays every loaded file of the same sample on one plot,
+  colored and ordered by concentration, for the immunosensor dose-response
+  view. Files are grouped by `sample_id` and `analyte_name`, computed live
+  from the loaded set, so correcting a sample or concentration under Sample
+  mapping regroups the overlay. A sample with fewer than two concentrations
+  shows a short empty state instead.
+- Dataframe tab: an instant row search and a larger in-page preview (up to
+  2,000 rows) with a running count; the CSV export still covers the full file.
+- The open file is kept in the URL, so a reload reopens it and its parse
+  record instead of dropping back to the empty state.
+- The plot area is a bounded flex column, so the curve fills its space
+  predictably and the column-mapping bar stays in view rather than being
+  pushed below the fold on a tall window.
+- The footer count of files needing a confirmed sample mapping is now a
+  control: clicking it filters the list to exactly those files.
+- The selected file stays highlighted, the Curve and Overlay plots render
+  only once their tab is visible (so neither renders mis-sized in a hidden
+  container), and the card labels share one type size.
+
+### Sample data
+- The CH Instruments sample files carry `Sample ID`, `Analyte`, and
+  `Concentration (M)` lines, so the IL-6 series exercises the Overlay through
+  the content-based path rather than any filename convention.
+
+### Tests
+- Overlay coverage added (`tests/test_overlay.py`): content-based sample
+  reading, concentration ordering, legend de-duplication, and the
+  fewer-than-two-concentrations case.
+
 ## 1.1.0 - 2026-08-13
 
 A correctness, safety, and robustness pass. No API changes.
@@ -96,4 +138,4 @@ First public release.
 - Synthetic sample dataset across all four formats, and a pytest suite with
   adversarial reader and viewer coverage.
 
-Built by Mo Shehu, mohammedshehu.com
+By [Mo Shehu](https://mohammedshehu.com)

@@ -4,7 +4,7 @@
 <p class="files-empty">No files loaded yet.</p>
 {% else %}
 <div class="files-count-row" style="padding:8px 16px 0">
-  <span>{{ store|length }} of {{ store|length }} files</span>
+  <span id="files-count-label" data-total="{{ store|length }}">{{ store|length }} of {{ store|length }} files</span>
 </div>
 <div class="file-list">
   {% for file_id, entry in store.items() %}
@@ -13,9 +13,10 @@
   <div class="file-row {{ 'selected' if file_id == selected_id else '' }}"
        data-file-id="{{ file_id }}"
        data-status="{{ qc.sanity_status }}"
+       data-confirmed="{{ 'true' if entry.mapping_confirmed else 'false' }}"
        data-search="{{ (m.source_filename ~ ' ' ~ (m.sample_id or '') ~ ' ' ~ m.instrument_source)|lower }}"
-       hx-get="/file/{{ file_id }}" hx-target="#plot-pane" hx-swap="innerHTML"
-       hx-trigger="click" onclick="selectedFileId='{{ file_id }}'">
+       hx-get="/file/{{ file_id }}" hx-target="#plot-pane" hx-swap="outerHTML"
+       hx-trigger="click" onclick="markSelected(this)">
     <span class="dot dot-{{ qc.sanity_status }}"></span>
     <div class="file-row-text">
       <span class="file-row-name">{{ m.source_filename }}</span>

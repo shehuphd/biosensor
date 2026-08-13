@@ -82,7 +82,8 @@ kbd{font-family:var(--font-mono)}
 
 /* ---------- workspace grid ---------- */
 .workspace{display:flex;flex:1;min-height:0}
-#left-pane, #right-pane{flex:0 0 300px;min-width:0;overflow:hidden}
+#left-pane{flex:0 0 320px;min-width:0;overflow:hidden}
+#right-pane{flex:0 0 340px;min-width:0;overflow:hidden}
 #left-pane.collapsed, #right-pane.collapsed{flex:0 0 32px}
 .pane-files, .pane-record{display:flex;flex-direction:column;background:var(--surface-card);height:100%;min-width:0;overflow:hidden}
 .pane-files{border-right:1px solid var(--border-default)}
@@ -117,7 +118,8 @@ kbd{font-family:var(--font-mono)}
   border-bottom:1px solid var(--border-subtle);position:relative;
 }
 .file-row:hover{background:var(--surface-sunken)}
-.file-row.selected{background:var(--state-success-bg)}
+.file-row.selected,.file-row.selected:hover{background:var(--state-success-bg);box-shadow:inset 0 0 0 1px var(--success-500)}
+.file-row.selected .file-row-name{color:var(--success-700);font-weight:var(--weight-medium)}
 .file-row.selected::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--success-500)}
 .file-row .dot{flex:none}
 .file-row-text{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
@@ -159,14 +161,27 @@ kbd{font-family:var(--font-mono)}
 }
 .card[hidden]{display:none}
 .card-header{display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs);color:var(--text-tertiary)}
-.card-eyebrow{letter-spacing:var(--tracking-wider);text-transform:uppercase}
+.card-eyebrow{font-size:var(--text-xs);color:var(--text-tertiary);letter-spacing:var(--tracking-wider);text-transform:uppercase}
 .card-legend{display:flex;gap:var(--space-5);font-family:var(--font-mono)}
 .legend-item{display:inline-flex;align-items:center;gap:6px}
 .legend-swatch{width:14px;height:2px;display:inline-block}
 .future-note{font-size:var(--text-xs);color:var(--text-tertiary)}
 
-#plot-div{min-height:420px;flex:1}
+/* #plot-pane is a bounded flex column so the active view fills the space
+   between the header and the mapping bar deterministically. Without this the
+   plot card's flex:1 is inert (its parent isn't a flex container), leaving the
+   plot height to Plotly's own container measurement — which on a tall window
+   can render huge and shove the mapping bar below the fold. */
+#plot-pane{display:flex;flex-direction:column;flex:1;min-height:0}
+#plot-div,#overlay-div{flex:1;min-height:0}
+.provenance-note{margin:var(--space-3) 0 2px;font-size:var(--text-xs);color:var(--text-tertiary);line-height:1.5}
 
+.df-header{gap:var(--space-4)}
+.df-search{flex:1;max-width:280px;padding:6px var(--space-4);font-family:var(--font-mono);font-size:var(--text-xs);border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-app);color:var(--text-primary)}
+.df-search:focus{outline:2px solid var(--focus-ring);outline-offset:-1px}
+.df-header #df-count{margin-left:auto}
+.df-note{margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--text-tertiary)}
+.df-empty-cell{padding:var(--space-5);text-align:center;color:var(--text-tertiary);font-style:italic}
 .df-scroll{flex:1;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);margin-top:var(--space-3)}
 .df-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:var(--text-xs)}
 .df-table th{position:sticky;top:0;text-align:left;padding:6px var(--space-4);background:var(--surface-sunken);color:var(--text-tertiary);border-bottom:1px solid var(--border-default);font-weight:var(--weight-medium)}
@@ -235,6 +250,9 @@ kbd{font-family:var(--font-mono)}
   border-top:1px solid var(--border-default);font-size:11.5px;color:var(--text-tertiary);
 }
 .footer-bar .right{font-family:var(--font-mono);margin-left:auto}
+.footer-action{font-family:inherit;font-size:inherit;color:var(--text-link);background:none;border:none;padding:0;cursor:pointer}
+.footer-action:hover{text-decoration:underline}
+#footer-mapping-count.active-filter .footer-action{color:var(--text-primary);font-weight:var(--weight-medium);text-decoration:underline}
 
 .empty-state{color:var(--text-tertiary);font-style:italic;padding:var(--space-6) var(--space-7)}
 .error{color:var(--state-danger-fg);font-weight:var(--weight-medium);padding:var(--space-4) var(--space-5)}

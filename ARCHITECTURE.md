@@ -21,6 +21,7 @@ flowchart TD
     subgraph app[viewer Flask + HTMX]
         upload[Upload / folder] --> store[in-memory STORE]
         store --> plot[Plotly curve]
+        store --> overlay[Concentration overlay across sample]
         store --> record[Parse record + QC]
         store --> mapfix[Mapping correction]
         store --> export[CSV export]
@@ -59,11 +60,11 @@ single user, in-memory only.
 | Route group | File | Purpose |
 |---|---|---|
 | `/`, `/parse`, `/batch` | `app.py` | Load a file or folder into the in-memory `STORE` |
-| `/file/<id>`, `/file/<id>/review` | `app.py` | Parse record, QC display, manual status override |
+| `/file/<id>`, `/file/<id>/review` | `app.py` | Parse record, QC display, manual status override, and the same-sample concentration overlay (peers gathered from `STORE` by `sample_id` + `analyte_name`) |
 | `/file/<id>/mapping/*` | `app.py`, `mapping.py` | Infer, preview, and apply a corrected column mapping by re-parsing raw bytes |
 | `/dataframe`, `/file/<id>/dataframe` | `app.py` | CSV export (batch or single) with formula-injection defusing |
 | `/ledger`, `/ledger/file/<id>` | `app.py` | Batch ledger view |
-| Plot / preview | `plotting.py`, `preview.py` | Build the Plotly figure and the dataframe preview |
+| Plot / preview | `plotting.py`, `preview.py` | Build the single-curve figure, the concentration-overlay figure (`build_overlay_json`), and the dataframe preview |
 
 ### Mapping correction
 
@@ -91,4 +92,4 @@ instrumented with [traceact](https://github.com/traceact/traceact), writing to
 `data/traces/traces.jsonl` for local debugging. Tracing isn't required to run
 the app.
 
-Built by Mo Shehu, mohammedshehu.com
+By [Mo Shehu](https://mohammedshehu.com)

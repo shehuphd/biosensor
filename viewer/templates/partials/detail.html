@@ -34,11 +34,20 @@
   </div>
 
   <div id="table-view" class="detail-view card" hidden>
-    {% set preview = dataframe_preview(m) %}
-    <div class="card-header">
-      <span class="card-eyebrow">Showing {{ preview.shown_rows }} of {{ preview.total_rows }} rows</span>
+    {% set preview = dataframe_preview(m, 2000) %}
+    <div class="card-header df-header">
+      <input class="df-search" type="text" placeholder="Search rows…" oninput="filterDfRows(this)"
+             aria-label="Search dataframe rows" />
+      <span class="card-eyebrow" id="df-count"
+            data-shown="{{ preview.shown_rows }}" data-total="{{ preview.total_rows }}"
+            data-truncated="{{ 'true' if preview.truncated else 'false' }}">
+        {% if preview.truncated %}First {{ "{:,}".format(preview.shown_rows) }} of {{ "{:,}".format(preview.total_rows) }} rows{% else %}{{ "{:,}".format(preview.total_rows) }} rows{% endif %}
+      </span>
       <a class="export-link" href="/file/{{ file_id }}/dataframe">export this file as CSV</a>
     </div>
+    {% if preview.truncated %}
+    <p class="df-note">Search covers the first {{ "{:,}".format(preview.shown_rows) }} rows shown here. Export the CSV for all {{ "{:,}".format(preview.total_rows) }}.</p>
+    {% endif %}
     <div class="df-scroll">
       <table class="df-table">
         <thead>
@@ -48,17 +57,43 @@
           {% for row in preview.rows %}
           <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
           {% endfor %}
+          <tr class="df-empty-row" hidden><td class="df-empty-cell" colspan="{{ preview.columns|length }}">No row matches that search.</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
   <div id="overlay-view" class="detail-view card" hidden>
+    {% set series = overlay_series(file_id) %}
+    {% set overlay = overlay_json(series) %}
+    {% if overlay %}
+    <div class="card-header">
+      <span class="card-eyebrow">Overlay — {{ m.sample_id }} &middot; {{ series|length }} curves</span>
+    </div>
+    <div id="overlay-div"></div>
+    <script class="plot-data-json" data-target="overlay-div" type="application/json">
+      {{ overlay | tojson }}
+    </script>
+    <p class="provenance-note">
+      Every loaded file whose sample is &ldquo;{{ m.sample_id }}&rdquo;{% if m.analyte_name %} ({{ m.analyte_name }}){% endif %}
+      is drawn here as one curve ({{ series|length }} matched). Each curve's color is the concentration read from that
+      file, low to high; the legend lists those concentrations. Change a file's sample or concentration under
+      <strong>Sample mapping</strong> and this overlay regroups.
+    </p>
+    {% else %}
     <div class="card-header">
       <span class="card-eyebrow">Overlay — same sample, by concentration</span>
-      <span class="future-note">future state — not in v1</span>
     </div>
-    <p class="empty-state">Overlay comparison across concentrations isn't built yet.</p>
+    <p class="empty-state">
+      {% if m.sample_id %}
+        &ldquo;{{ m.sample_id }}&rdquo; needs two or more concentrations to overlay. Load more files from the same
+        sample, or set concentrations under <strong>Sample mapping</strong>, to compare them here.
+      {% else %}
+        This file has no sample identity yet. Set a Sample ID and concentration under <strong>Sample mapping</strong>,
+        then load other files from the same sample to overlay them by concentration.
+      {% endif %}
+    </p>
+    {% endif %}
   </div>
 
   {% if mapping %}
@@ -102,7 +137,7 @@
     <p class="qc-desc">{{ qc.sanity_reason or "Return sweep present and a peak was detected in the current trace. All points finite." }}</p>
     {% if qc.reviewed_by %}<p class="qc-desc">Reviewed by: {{ qc.reviewed_by }}</p>{% endif %}
 
-    <form id="qc-override-{{ file_id }}" hidden hx-post="/file/{{ file_id }}/review" hx-target="#plot-pane" hx-swap="innerHTML" class="qc-override">
+    <form id="qc-override-{{ file_id }}" hidden hx-post="/file/{{ file_id }}/review" hx-target="#plot-pane" hx-swap="outerHTML" class="qc-override">
       <input type="hidden" name="reviewed_by" value="manual" />
       <button type="submit" class="btn btn-primary" name="sanity_status" value="ok">Accept as ok</button>
       <button type="submit" class="link-btn" name="sanity_status" value="flagged">Keep flagged</button>
@@ -122,7 +157,7 @@
   <div class="record-block">
     <span class="sample-mapping-heading">Sample mapping</span>
     <span class="sample-mapping-hint">Inferred from file content. Confirm before export &mdash; these columns are written to every row of the CSV.</span>
-    <form hx-post="/file/{{ file_id }}/mapping" hx-target="#plot-pane" hx-swap="innerHTML" style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
+    <form hx-post="/file/{{ file_id }}/mapping" hx-target="#plot-pane" hx-swap="outerHTML" style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
       <div class="field-group">
         <label class="field-label" for="sample_id-{{ file_id }}">Sample ID</label>
         <input class="field-input" id="sample_id-{{ file_id }}" type="text" name="sample_id" value="{{ m.sample_id or '' }}" />
@@ -160,4 +195,9 @@
 {% if stats_oob %}
 <div id="topbar-stats" hx-swap-oob="true">{% include "partials/topbar_stats.html" %}</div>
 <span id="footer-mapping-count" class="right" hx-swap-oob="true">{% include "partials/footer_count.html" %}</span>
+{% if store is defined %}
+{# Refresh the file list so a row's QC dot, sample text, and confirmed state
+   stay in step with a mapping/QC change (keeps the unconfirmed filter honest). #}
+<div id="batch-table" hx-swap-oob="true">{% include "partials/table_body.html" %}</div>
+{% endif %}
 {% endif %}
