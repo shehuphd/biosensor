@@ -9,8 +9,10 @@ set "PY=.venv\Scripts\python.exe"
 
 REM Rebuild the venv if it's missing or incomplete: a partial editable install
 REM leaves an interpreter that can't import the package.
+REM The check imports flask too, so a venv built before the viewer extra
+REM existed (biosensor without flask) is rebuilt rather than crashing at startup.
 if not exist "%PY%" goto setup
-"%PY%" -c "import biosensor" 2>nul
+"%PY%" -c "import biosensor, flask" 2>nul
 if errorlevel 1 goto setup
 goto run
 
@@ -19,7 +21,7 @@ echo Setting up virtual environment ^(first run only^)...
 python -m venv .venv
 "%PY%" -m ensurepip --upgrade
 "%PY%" -m pip install -q --upgrade pip
-"%PY%" -m pip install -q -e ".[dev]"
+"%PY%" -m pip install -q -e ".[dev,viewer]"
 
 :run
 start "" /b cmd /c "timeout /t 1 >nul & start http://127.0.0.1:5050"

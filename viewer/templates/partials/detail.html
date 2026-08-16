@@ -26,11 +26,25 @@
   <div id="plot-view" class="detail-view card">
     <div class="card-header">
       <span class="card-eyebrow">Current vs potential</span>
+      <label class="calib-method-label">Baseline:
+        <select class="curve-method" onchange="renderCurve(this.value)">
+          {% for name, label in peak_methods() %}
+          <option value="{{ name }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
     </div>
     <div id="plot-div"></div>
-    <script class="plot-data-json" data-target="plot-div" type="application/json">
-      {{ plot_json(m) | tojson }}
+    {% for name, label in peak_methods() %}
+    <script class="curve-data-json" data-method="{{ name }}" type="application/json">
+      {{ curve_json(m, name) | tojson }}
     </script>
+    {% endfor %}
+    <p class="provenance-note">
+      The peak is marked; for a baseline method the dashed line is the extrapolated background and the dotted
+      drop is the measured height (ip) above it. Raw max takes the height from zero, so it includes the
+      background current. This is the same choice offered under the calibration inset in the Overlay tab.
+    </p>
   </div>
 
   <div id="table-view" class="detail-view card" hidden>
@@ -47,6 +61,9 @@
     </div>
     {% if preview.truncated %}
     <p class="df-note">Search covers the first {{ "{:,}".format(preview.shown_rows) }} rows shown here. Export the CSV for all {{ "{:,}".format(preview.total_rows) }}.</p>
+    {% endif %}
+    {% if preview.hidden_columns %}
+    <p class="df-note">{{ preview.hidden_columns }} empty column{{ 's' if preview.hidden_columns != 1 else '' }} hidden. The exported CSV keeps every column.</p>
     {% endif %}
     <div class="df-scroll">
       <table class="df-table">
@@ -86,14 +103,14 @@
         <span class="card-eyebrow">Calibration &mdash; peak current vs concentration</span>
         <label class="calib-method-label">Peak current:
           <select class="calib-method" onchange="renderCalibration(this.value)">
-            {% for name, label in calibration_methods() %}
+            {% for name, label in peak_methods() %}
             <option value="{{ name }}">{{ label }}</option>
             {% endfor %}
           </select>
         </label>
       </div>
       <div id="calibration-div"></div>
-      {% for name, label in calibration_methods() %}
+      {% for name, label in peak_methods() %}
       <script class="calibration-data-json" data-method="{{ name }}" type="application/json">
         {{ calibration_json(series, name) | tojson }}
       </script>
@@ -162,11 +179,16 @@
     <p class="qc-desc">{{ qc.sanity_reason or "Return sweep present and a peak was detected in the current trace. All points finite." }}</p>
     {% if qc.reviewed_by %}<p class="qc-desc">Reviewed by: {{ qc.reviewed_by }}</p>{% endif %}
 
+    {# The button matching the current status is the one already applied, so it's
+       disabled; the other two are the moves that would change (revert) it. #}
     <form id="qc-override-{{ file_id }}" hidden hx-post="/file/{{ file_id }}/review" hx-target="#plot-pane" hx-swap="outerHTML" class="qc-override">
       <input type="hidden" name="reviewed_by" value="manual" />
-      <button type="submit" class="btn btn-primary" name="sanity_status" value="ok">Accept as ok</button>
-      <button type="submit" class="link-btn" name="sanity_status" value="flagged">Keep flagged</button>
-      <button type="submit" class="link-btn link-btn-danger" name="sanity_status" value="failed">Mark failed</button>
+      <button type="submit" class="btn btn-primary" name="sanity_status" value="ok"
+              {{ 'disabled' if qc.sanity_status == 'ok' }}>Accept as ok</button>
+      <button type="submit" class="link-btn" name="sanity_status" value="flagged"
+              {{ 'disabled' if qc.sanity_status == 'flagged' }}>Keep flagged</button>
+      <button type="submit" class="link-btn link-btn-danger" name="sanity_status" value="failed"
+              {{ 'disabled' if qc.sanity_status == 'failed' }}>Mark failed</button>
     </form>
   </div>
 
@@ -218,7 +240,7 @@
 </div>
 
 {% if stats_oob %}
-<div id="topbar-stats" hx-swap-oob="true">{% include "partials/topbar_stats.html" %}</div>
+<div id="topbar-stats" class="topbar-stats" hx-swap-oob="true">{% include "partials/topbar_stats.html" %}</div>
 <span id="footer-mapping-count" class="right" hx-swap-oob="true">{% include "partials/footer_count.html" %}</span>
 {% if store is defined %}
 {# Refresh the file list so a row's QC dot, sample text, and confirmed state

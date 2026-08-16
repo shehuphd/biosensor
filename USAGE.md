@@ -9,14 +9,15 @@ The full manual. For a one-minute overview and install, see
 pip install biosensor
 ```
 
-That wheel is the library only. The viewer, the double-click launchers, and
-`sample_data/` ship in the repository, not on PyPI. For those, and for the test
-suite, clone and install in place:
+That wheel is the library only, and installs just pandas. The viewer, the
+double-click launchers, and `sample_data/` ship in the repository, not on PyPI;
+the viewer's own dependencies (Flask, traceact) install with the `viewer` extra.
+For the viewer and the test suite, clone and install in place:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,viewer]"
 ```
 
 ## See it work
@@ -209,34 +210,45 @@ restart. Start it with the launcher for your platform, or manually:
 source .venv/bin/activate && python viewer/app.py
 ```
 
-It opens at `http://127.0.0.1:5050`. Load a single file or a folder, inspect
-the CV curve and the parse record, correct a wrong column mapping in-place
-with a live preview, override the quality flag, and export a single file or
-the whole batch as CSV. CSV export defuses spreadsheet-formula injection in any
-text field derived from file content.
+It opens at `http://127.0.0.1:5050`. The **Add data** button loads your files:
+choose one file, several files, or a whole folder, or drag any of them onto the
+window; Biosensor routes each by content. Inspect the CV curve and the parse
+record, correct a wrong column mapping in-place with a live preview, override
+the quality flag, and export a single file or the whole batch as CSV. CSV export
+defuses spreadsheet-formula injection in any text field derived from file
+content.
 
 The center pane has three tabs:
 
 - **Curve**: the file's voltammogram (current vs potential), one trace per
-  cycle.
+  cycle. A Baseline dropdown draws the chosen peak-current method on the curve
+  (see the method table below): the peak is marked, and for a baseline method
+  the extrapolated background and the measured height (ip) are drawn. When a
+  baseline estimate lands outside a physical range, the curve says so and
+  suggests another method. Hovering anywhere in a potential column reads out that
+  point's potential and current.
 - **Dataframe**: the parsed rows with an instant search box; the preview
   shows up to 2,000 rows in the page, and the CSV export covers the full file.
+  Columns that are empty for this file are hidden to avoid horizontal scrolling;
+  the exported CSV keeps every column.
 - **Overlay**: every loaded file that shares this file's sample, drawn on one
   plot, colored and ordered by concentration, for the dose-response view.
   Grouping is by `sample_id` and `analyte_name`, read from file content;
   correcting a sample or concentration under Sample mapping regroups it. A
   sample with fewer than two concentrations shows a short empty state. Below the
   overlay is a **calibration inset**: one point per file plotting peak current
-  against concentration, with a linear fit and its R². A method dropdown selects
-  how peak current is measured:
+  against concentration, with a linear fit and its R².
+
+The Curve tab and the calibration inset share one peak-current method dropdown:
 
   | Method | What it reports |
   | --- | --- |
-  | Raw max (not baseline-corrected) | The largest current in the sweep, background included. The default, because it makes no assumption about the baseline. Point hovers label it as uncorrected. |
-  | Linear baseline (pre-peak) | Fits a line to the pre-peak foot, extrapolates it under the peak, and subtracts it. Point hovers show the peak, the baseline at the peak, and the corrected height. |
+  | Raw max (not baseline-corrected) | The largest current in the sweep, background included. The default, because it makes no assumption about the baseline. Hovers label it as uncorrected. |
+  | Linear baseline (pre-peak) | Fits a line to the pre-peak foot, extrapolates it under the peak, and subtracts it. Hovers show the peak, the baseline at the peak, and the corrected height. |
+  | Linear baseline (post-peak) | The mirror of pre-peak: fits the post-peak tail and extrapolates the baseline back under the peak. |
 
-  Both methods are shown because baseline estimation is an unsettled problem;
-  the researcher picks the one their reporting convention expects. Switching is
+  All three are shown because baseline estimation is an unsettled problem; the
+  researcher picks the one their reporting convention expects. Switching is
   instant and needs no reload.
 
 The open file is kept in the URL, so reloading the page reopens it.

@@ -2,18 +2,28 @@
 {% set grouped = flash_errors|groupby('category') %}
 <div class="flash-errors" data-error-count="{{ flash_errors|length }}">
   <div class="flash-errors-head">
+    <button type="button" class="flash-collapse" aria-expanded="true"
+            aria-label="Collapse" title="Collapse" onclick="toggleFlashErrors(this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
     <span class="flash-errors-title">
       {{ flash_errors|length }} file{{ 's' if flash_errors|length != 1 else '' }} could not be loaded
     </span>
-    <div class="flash-filter" role="group" aria-label="Filter errors by category">
-      <button type="button" class="flash-chip is-active" data-cat="all"
-              onclick="filterFlashErrors(this)">All ({{ flash_errors|length }})</button>
-      {% for cat, items in grouped %}
-      <button type="button" class="flash-chip" data-cat="{{ cat }}"
-              onclick="filterFlashErrors(this)">{{ cat }} ({{ items|length }})</button>
-      {% endfor %}
-    </div>
+    <button type="button" class="flash-dismiss" aria-label="Dismiss" title="Dismiss"
+            onclick="dismissFlashErrors(this)">&times;</button>
   </div>
+  {# One category filters to the same list as All, so only offer the filter when
+     the failures span more than one category. #}
+  {% if grouped|list|length > 1 %}
+  <div class="flash-filter" role="group" aria-label="Filter errors by category">
+    <button type="button" class="flash-chip is-active" data-cat="all"
+            onclick="filterFlashErrors(this)">All ({{ flash_errors|length }})</button>
+    {% for cat, items in grouped %}
+    <button type="button" class="flash-chip" data-cat="{{ cat }}"
+            onclick="filterFlashErrors(this)">{{ cat|capitalize }} ({{ items|length }})</button>
+    {% endfor %}
+  </div>
+  {% endif %}
   <ul class="flash-errors-list">
     {% for cat, items in grouped %}
     {% for e in items %}

@@ -95,8 +95,40 @@ def linear_prepeak(m: Measurement) -> PeakResult:
     )
 
 
+def linear_postpeak(m: Measurement) -> PeakResult:
+    """Peak height above a baseline extrapolated from the post-peak tail.
+
+    The mirror of ``linear_prepeak``: fits a line through the trailing points
+    after the peak and extrapolates it back under the peak; the peak current is
+    the height above that line. This is the other standard tangent-baseline
+    convention. It falls back to the raw maximum when there aren't enough
+    trailing points to fit a baseline.
+    """
+    cur, pot = m.current_a, m.potential_v
+    i = _argmax(cur)
+    trailing = len(cur) - 1 - i
+    if trailing < 3:
+        r = raw_max(m)
+        r.method = "linear_postpeak"
+        return r
+    k = max(3, trailing // 5)  # the last ~20% of the post-peak points, at least 3
+    xs = pot[-k:]
+    ys = cur[-k:]
+    slope, intercept, _ = _linfit(xs, ys)
+    baseline_at_peak = slope * pot[i] + intercept
+    return PeakResult(
+        ip=cur[i] - baseline_at_peak,
+        peak_current=cur[i],
+        peak_potential=pot[i],
+        baseline_at_peak=baseline_at_peak,
+        method="linear_postpeak",
+        baseline_points=(pot[i], baseline_at_peak, pot[-1], slope * pot[-1] + intercept),
+    )
+
+
 # Registry, in display order. The label states exactly what the method measures.
 METHODS: dict[str, dict] = {
     "raw_max": {"label": "Raw max (not baseline-corrected)", "fn": raw_max},
     "linear_prepeak": {"label": "Linear baseline (pre-peak)", "fn": linear_prepeak},
+    "linear_postpeak": {"label": "Linear baseline (post-peak)", "fn": linear_postpeak},
 }

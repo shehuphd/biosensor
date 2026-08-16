@@ -22,19 +22,21 @@ filename-extension based.
 
 ## Install
 
-The library, from PyPI:
+The library, from PyPI (pandas is its only dependency):
 
 ```bash
 pip install biosensor
 ```
 
-The viewer, launchers, and `sample_data/` ship in the repository, not the
-wheel. For those and the test suite, clone and install in place:
+Flask and traceact are the viewer's dependencies, not the library's, so they
+install only with the `viewer` extra. The viewer, launchers, and `sample_data/`
+ship in the repository, not the wheel; clone and install in place for those and
+the test suite:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,viewer]"
 ```
 
 ## Library usage
@@ -60,14 +62,14 @@ touching the measurement schema.
 
 ## Viewer
 
-Double-click the launcher for your platform (`launcher.command` on macOS,
-`launcher.sh` on Linux, `launcher.bat` on Windows). Each sets up the venv on
+Double-click the launcher for your platform (`launch.command` on macOS,
+`launch.sh` on Linux, `launch.bat` on Windows). Each sets up the venv on
 first run, then starts the server and opens the browser:
 
 ```bash
-./launcher.command      # macOS
-./launcher.sh           # Linux
-launcher.bat            # Windows
+./launch.command      # macOS
+./launch.sh           # Linux
+launch.bat            # Windows
 # or manually: source .venv/bin/activate && python viewer/app.py
 ```
 
@@ -76,19 +78,29 @@ filter, ok/flagged/failed tabs), the center with three tabs (the CV curve in
 Plotly with zoom/pan; a Dataframe tab with row search, previewing up to 2,000
 rows in the page while CSV export covers the full file; and an Overlay tab), and
 a parse record on the right (quality check, instrument metadata,
-sample/concentration mapping). The Overlay tab draws every loaded file of the
-same sample on one plot, colored and ordered by concentration, for the
-dose-response view, with a calibration inset below it plotting peak current
-against concentration and a linear fit. A method dropdown chooses how peak
-current is measured: raw maximum (not baseline-corrected, the default) or a
-linear pre-peak baseline. Load a single file or an entire folder, correct a wrong
-column mapping in-place (see a live preview before applying), override the
-quality flag manually, and export any file or the whole batch as CSV. The open
-file is kept in the URL, so a reload reopens it. Light/dark theme toggle in
-Settings. htmx, Plotly, and the IBM Plex fonts are vendored under
-`viewer/static/vendor/`, so the viewer runs fully offline with no CDN
-dependency. (Fonts are IBM Plex, under the SIL Open Font License 1.1; see
-`viewer/static/vendor/fonts/OFL.txt`.)
+sample/concentration mapping).
+
+One **Add data** button loads your files: choose one file, several files, or a
+whole folder, or drag any of them onto the window. Biosensor reads each one and
+sorts out what to show.
+
+On the **Curve** tab a Baseline dropdown draws the chosen peak-current method on
+the curve: raw maximum (not baseline-corrected, the default), or a linear
+pre-peak or post-peak baseline extrapolated under the peak. The peak is marked,
+the measured height (ip) is drawn, and when a baseline estimate lands outside a
+physical range the curve says so and suggests another method. Hovering anywhere
+in a potential column reads out that point.
+
+The **Overlay** tab draws every loaded file of the same sample on one plot,
+colored and ordered by concentration, with a calibration inset below it plotting
+peak current against concentration and a linear fit; the same peak-current
+methods are offered there. Correct a wrong column mapping in-place (with a live
+preview before applying), override the quality flag manually, and export any
+file or the whole batch as CSV. The open file is kept in the URL, so a reload
+reopens it. Light/dark theme toggle in Settings. htmx, Plotly, and the IBM Plex
+fonts are vendored under `viewer/static/vendor/`, so the viewer runs fully
+offline with no CDN dependency. (Fonts are IBM Plex, under the SIL Open Font
+License 1.1; see `viewer/static/vendor/fonts/OFL.txt`.)
 
 Visual design follows the Tree Design System, with design tokens under
 `viewer/static/tokens/`.
@@ -139,7 +151,8 @@ exercising the viewer by hand: an IL-6 immunosensor concentration series
 peak height scaling with concentration, which the Overlay tab draws as a
 dose-response fan), ferricyanide and blank references, Metrohm Nova DPV/CV,
 PalmSens sessions, a well-formed generic CSV, and two files that deliberately
-fail to parse (to exercise the batch error path). Point "Load a folder" at it. Regenerate with:
+fail to parse (to exercise the batch error path). Point **Add data → Choose a
+folder…** at it, or drag the folder onto the window. Regenerate with:
 
 ```bash
 source .venv/bin/activate

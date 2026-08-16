@@ -38,7 +38,12 @@ from mapping import (
     reparse_with_manual_mapping,
 )
 from analysis import METHODS as PEAK_METHODS
-from plotting import build_calibration_json, build_overlay_json, build_plot_json
+from plotting import (
+    build_calibration_json,
+    build_curve_json,
+    build_overlay_json,
+    build_plot_json,
+)
 from preview import build_dataframe_preview
 
 _TRACES_DIR = Path(__file__).resolve().parent.parent / "data" / "traces"
@@ -81,7 +86,10 @@ def _overlay_series_for(file_id: str) -> list:
 app.jinja_env.globals["overlay_series"] = _overlay_series_for
 app.jinja_env.globals["overlay_json"] = build_overlay_json
 app.jinja_env.globals["calibration_json"] = build_calibration_json
-app.jinja_env.globals["calibration_methods"] = lambda: [
+app.jinja_env.globals["curve_json"] = build_curve_json
+# The peak-current methods (name, label), shared by the calibration inset and
+# the Curve view's baseline picker.
+app.jinja_env.globals["peak_methods"] = lambda: [
     (name, spec["label"]) for name, spec in PEAK_METHODS.items()
 ]
 
@@ -263,6 +271,7 @@ def parse_single():
 def batch_upload():
     files = request.files.getlist("files")
     errors = []
+    stored_ids = []
     for file_storage in files:
         if not file_storage or not file_storage.filename:
             continue
@@ -272,9 +281,17 @@ def batch_upload():
             continue
         file_id = uuid.uuid4().hex
         _store(file_id, raw, outcome)
+        stored_ids.append(file_id)
 
+    # Picking a single file through the Add-data menu should open it, the same
+    # as the old single-file upload did; a folder or several files just loads.
+    selected_id = stored_ids[0] if len(stored_ids) == 1 else None
     return render_template(
-        _upload_response_template(), store=STORE, stats=_stats(), flash_errors=errors or None
+        _upload_response_template(),
+        store=STORE,
+        stats=_stats(),
+        selected_id=selected_id,
+        flash_errors=errors or None,
     )
 
 

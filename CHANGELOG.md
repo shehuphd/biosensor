@@ -3,6 +3,45 @@
 All notable changes to Biosensor, newest first. Versions follow semantic
 versioning.
 
+## 1.4.0 - 2026-08-16
+
+Viewer workflow and chart refinements, plus a leaner install and a test gate on
+releases. No breaking API changes; the `Measurement` schema is unchanged.
+
+### Packaging
+- `pip install biosensor` now installs only pandas. Flask and traceact were the
+  viewer's dependencies, not the library's, and moved to a `viewer` extra
+  (`pip install "biosensor[viewer]"`). The launchers install `.[dev,viewer]`.
+- Tests run in CI on every push and pull request (Python 3.10 and 3.12), and the
+  publish workflow now runs the suite before building, so a red suite blocks a
+  release.
+
+### Viewer
+- One **Add data** button replaces the separate file and folder buttons: choose
+  one file, several files, or a whole folder, or drag any of them onto the
+  window. Biosensor routes each by content.
+- **Curve** tab: a Baseline dropdown draws the chosen peak-current method on the
+  curve (raw max, linear pre-peak, or the new linear post-peak baseline), marking
+  the peak and the measured height (ip). When a baseline estimate lands outside a
+  physical range, the curve says so and suggests another method rather than
+  showing a wrong number silently.
+- Hovering anywhere in a potential column reads out that point's potential and
+  current, instead of only the peak.
+- The Dataframe tab hides columns that are empty for the file (an optional field
+  with no value), so an empty middle band no longer forces horizontal scrolling.
+  The exported CSV still carries every column.
+- Confirmations render as an in-app dialog instead of a bare browser popup. The
+  batch-error panel is collapsible and dismissable, and its category filter
+  appears only when the failures span more than one category.
+- Chart toolbar: a snapshot button that saves a PNG and copies it to the
+  clipboard, the active tool highlighted, tooltips on every button, the toolbar
+  pinned to the top-left, and the Plotly logo removed.
+
+### Analysis
+- New `linear_postpeak` peak-current method: fits the post-peak tail and
+  extrapolates the baseline back under the peak, the mirror of `linear_prepeak`.
+  Offered on both the Curve tab and the calibration inset.
+
 ## 1.3.0 - 2026-08-13
 
 Adds a calibration inset to the viewer's Overlay tab. No breaking API changes;

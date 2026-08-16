@@ -6,8 +6,17 @@ Flask.
 
 from __future__ import annotations
 
-from analysis import METHODS, _linfit
+from analysis import METHODS, PeakResult, _linfit
 from biosensor.schema import Measurement
+
+# The baseline overlay draws in a warm accent so it reads apart from the
+# (cool, default-colored) voltammogram trace beneath it.
+_PEAK_ACCENT = "#753219"
+
+# Hover readout for a voltammogram point: potential in volts, current with an
+# SI prefix (d3's ".3s" turns 3.5e-7 into "350n"). Ends without <extra> so the
+# trace-name box stays, which labels the cycle or concentration on hover.
+_CURVE_HOVER = "Potential %{x:.4g} V<br>Current %{y:.3s}A"
 
 
 def _format_current(value: float) -> str:
@@ -86,6 +95,7 @@ def build_overlay_json(measurements: list[Measurement]) -> dict | None:
                 "legendgroup": label,
                 "showlegend": first,
                 "line": {"color": _sequential_color(t)},
+                "hovertemplate": _CURVE_HOVER + "<extra>%s</extra>" % label,
             }
         )
 
@@ -181,7 +191,92 @@ def build_calibration_json(measurements: list[Measurement], method: str = "raw_m
     return {"data": [scatter, fit], "layout": layout, "method": method, "r2": r2}
 
 
-def build_plot_json(m: Measurement) -> dict:
+def _baseline_hint(peak: PeakResult) -> str | None:
+    """A one-line, actionable note when a baseline estimate is unphysical.
+
+    A baseline should sit between zero and the peak. When the extrapolation
+    lands outside that range the subtracted height is wrong (ip above the raw
+    max, or negative), which is the known failure mode of a linear fit through
+    a noisy or transient-laden foot. Rather than show the bad number silently,
+    say what happened and what to do. Raw max has no baseline, so never flags.
+    """
+    if peak.baseline_points is None:
+        return None
+    b = peak.baseline_at_peak
+    if b < 0:
+        return "Baseline dips below 0 here, so ip exceeds the raw max — try another baseline method or adjust the region."
+    if b > peak.peak_current:
+        return "Baseline sits above the peak, so ip is negative — try another baseline method or adjust the region."
+    return None
+
+
+def _peak_overlay(peak: PeakResult, method_label: str) -> tuple[list[dict], list[dict]]:
+    """Traces and annotations that draw a peak result on the curve.
+
+    For a baseline method: the extrapolated baseline segment, a vertical drop
+    from the baseline up to the peak (the measured height ip), and a marker on
+    the peak. For raw max there's no baseline, so only the peak is marked and
+    the label says the height is measured from zero.
+    """
+    traces: list[dict] = []
+    annotations: list[dict] = []
+    px, pyc = peak.peak_potential, peak.peak_current
+
+    if peak.baseline_points is not None:
+        x0, y0, x1, y1 = peak.baseline_points
+        traces.append({
+            "x": [x0, x1], "y": [y0, y1],
+            "mode": "lines", "type": "scatter",
+            "name": "baseline",
+            "line": {"color": _PEAK_ACCENT, "dash": "dash", "width": 2},
+            "hoverinfo": "skip",
+        })
+        traces.append({
+            "x": [px, px], "y": [peak.baseline_at_peak, pyc],
+            "mode": "lines", "type": "scatter",
+            "name": "ip", "showlegend": False,
+            "line": {"color": _PEAK_ACCENT, "dash": "dot", "width": 1.5},
+            "hoverinfo": "skip",
+        })
+        ip_label = f"ip = {_format_current(peak.ip)}"
+    else:
+        ip_label = f"raw max = {_format_current(peak.ip)} (from zero, no baseline)"
+
+    traces.append({
+        "x": [px], "y": [pyc],
+        "mode": "markers", "type": "scatter",
+        "name": "peak",
+        "marker": {"color": _PEAK_ACCENT, "size": 10, "line": {"color": "#ffffff", "width": 1}},
+        "hovertemplate": f"peak &middot; {method_label}<br>%{{x:.4g}} V, {_format_current(pyc)}<extra></extra>",
+    })
+    annotations.append({
+        "x": px, "y": pyc, "text": ip_label,
+        "showarrow": True, "arrowhead": 0, "ax": 0, "ay": -28,
+        "font": {"color": _PEAK_ACCENT, "size": 12},
+        "bgcolor": "rgba(255,255,255,0.75)",
+    })
+
+    hint = _baseline_hint(peak)
+    if hint:
+        annotations.append({
+            "xref": "paper", "yref": "paper",
+            "x": 0.5, "xanchor": "center", "y": 1.0, "yanchor": "bottom",
+            "text": hint, "showarrow": False,
+            "font": {"color": "#8a5a00", "size": 11},
+            "bgcolor": "rgba(235,209,39,0.22)", "borderpad": 4,
+        })
+    return traces, annotations
+
+
+def build_curve_json(m: Measurement, method: str = "raw_max") -> dict:
+    """Single-curve figure with the chosen peak method drawn on it."""
+    spec = METHODS.get(method) or METHODS["raw_max"]
+    peak = spec["fn"](m)
+    return build_plot_json(m, peak=peak, method_label=spec["label"])
+
+
+def build_plot_json(m: Measurement, peak: PeakResult | None = None,
+                    method_label: str = "") -> dict:
     if m.cycle_number:
         cycles: dict[int, dict[str, list[float]]] = {}
         for p, c, cyc in zip(m.potential_v, m.current_a, m.cycle_number):
@@ -195,6 +290,7 @@ def build_plot_json(m: Measurement) -> dict:
                 "mode": "lines",
                 "type": "scatter",
                 "name": f"Cycle {cyc}",
+                "hovertemplate": _CURVE_HOVER + "<extra>Cycle %d</extra>" % cyc,
             }
             for cyc, data in sorted(cycles.items())
         ]
@@ -206,6 +302,8 @@ def build_plot_json(m: Measurement) -> dict:
                 "mode": "lines",
                 "type": "scatter",
                 "name": m.source_filename,
+                # Filename can be long, so drop it from the hover box (<extra>).
+                "hovertemplate": _CURVE_HOVER + "<extra></extra>",
             }
         ]
 
@@ -213,7 +311,17 @@ def build_plot_json(m: Measurement) -> dict:
         "xaxis": {"title": "Potential (V)"},
         "yaxis": {"title": "Current (A)"},
         "margin": {"t": 30, "r": 20, "b": 50, "l": 70},
-        "hovermode": "closest",
+        # "x" so hovering anywhere in a potential column reads out that point,
+        # rather than "closest", which makes you land the cursor on a thin line.
+        "hovermode": "x",
     }
+
+    if peak is not None:
+        overlay, annotations = _peak_overlay(peak, method_label)
+        traces.extend(overlay)
+        layout["annotations"] = annotations
+        if _baseline_hint(peak):
+            # Make room in the top margin for the warning banner.
+            layout["margin"] = {**layout["margin"], "t": 52}
 
     return {"data": traces, "layout": layout}

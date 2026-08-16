@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph app[viewer Flask + HTMX]
-        upload[Upload / folder] --> store[in-memory STORE]
+        upload[Add data: files / folder / drag-drop] --> store[in-memory STORE]
         store --> plot[Plotly curve]
         store --> overlay[Concentration overlay + calibration inset across sample]
         store --> record[Parse record + QC]

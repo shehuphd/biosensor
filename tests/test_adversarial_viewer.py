@@ -280,12 +280,12 @@ def test_responses_are_not_cached(client):
     assert resp.headers.get("Cache-Control") == "no-store"
 
 
-def test_primary_action_accent_follows_file_count(client):
-    # With nothing loaded there's nothing to export, so Upload carries the
-    # primary (green) accent, not Export. Once a file exists it moves to Export.
+def test_add_data_always_carries_the_primary_accent(client):
+    # Adding data is the primary action, so Add data keeps the green accent and
+    # Export stays neutral, whether or not files are loaded.
     def accents():
         html = client.get("/").get_data(as_text=True)
-        up = re.search(r'id="action-upload"[^>]*class="([^"]*)"', html).group(1)
+        up = re.search(r'id="action-add"[^>]*class="([^"]*)"', html).group(1)
         ex = re.search(r'id="action-export"[^>]*class="([^"]*)"', html).group(1)
         return "primary" in up, "primary" in ex
 
@@ -294,13 +294,69 @@ def test_primary_action_accent_follows_file_count(client):
 
     _upload(client, "chi.txt", CHI_VALID)
     up_primary, ex_primary = accents()
-    assert not up_primary and ex_primary
+    assert up_primary and not ex_primary
 
 
 def test_batch_upload_with_no_files_is_handled(client):
     resp = client.post("/batch", data={}, content_type="multipart/form-data")
     assert resp.status_code == 200
     assert len(viewer_app.STORE) == 0
+
+
+def _batch(client, named_files, view="panes"):
+    return client.post(
+        "/batch",
+        data={
+            "view": view,
+            "files": [(io.BytesIO(content), name) for name, content in named_files],
+        },
+        content_type="multipart/form-data",
+    )
+
+
+def test_batch_selects_the_row_when_exactly_one_file_uploads(client):
+    # The merged Add-data menu routes a single file through /batch too, so a
+    # one-file upload should open (select) it, matching the old single upload.
+    html = _batch(client, [("one.txt", CHI_VALID)]).get_data(as_text=True)
+    assert 'class="file-row selected"' in html
+
+
+def test_batch_selects_nothing_when_several_files_upload(client):
+    # A folder or multi-file pick loads the files without pinning a selection.
+    html = _batch(client, [("a.txt", CHI_VALID), ("b.txt", CHI_VALID)]).get_data(as_text=True)
+    assert 'class="file-row selected"' not in html
+
+
+def test_batch_ignores_failures_when_deciding_the_single_selection(client):
+    # One good file plus one unparseable: still a single stored file, so it
+    # selects the good one rather than being treated as a multi-upload.
+    html = _batch(client, [("ok.txt", CHI_VALID), ("bad.csv", b"")]).get_data(as_text=True)
+    assert 'class="file-row selected"' in html
+
+
+# ---------------------------------------------------------------- QC review buttons track status
+
+def _qc_button(html, value):
+    # The <button ... value="{value}" ...> for one QC action, whitespace-collapsed.
+    m = re.search(r'<button[^>]*value="' + value + r'"[^>]*>', html)
+    return re.sub(r"\s+", " ", m.group(0)) if m else ""
+
+
+@pytest.mark.parametrize("status", ["ok", "flagged", "failed"])
+def test_qc_review_disables_only_the_current_status_button(client, status):
+    # Setting the status to its current value is a no-op, so that button is
+    # disabled; the other two stay live because they'd change (revert) it.
+    _batch(client, [("one.txt", CHI_VALID)])
+    file_id = next(iter(viewer_app.STORE))
+    resp = client.post(
+        f"/file/{file_id}/review",
+        data={"sanity_status": status, "reviewed_by": "manual"},
+        content_type="multipart/form-data",
+    )
+    html = resp.get_data(as_text=True)
+    for value in ("ok", "flagged", "failed"):
+        button = _qc_button(html, value)
+        assert ("disabled" in button) == (value == status), button
 
 
 # ---------------------------------------------------------------- long strings get bounded
@@ -332,9 +388,27 @@ def test_batch_errors_render_grouped_by_category(client):
     )
     html = resp.get_data(as_text=True)
     assert 'class="flash-errors"' in html
-    # filter chips carry the per-category counts
-    assert "unsupported (2)" in html
-    assert "parse (1)" in html
+    # More than one category, so the filter chips show, with capitalized labels.
+    assert "All (3)" in html
+    assert "Unsupported (2)" in html
+    assert "Parse (1)" in html
     # each failed file is listed with its category tag
     assert 'data-cat="unsupported"' in html and 'data-cat="parse"' in html
     assert "people.csv" in html and "truncated.pssession" in html
+
+
+def test_batch_errors_single_category_hides_the_filter(client):
+    # When every failure shares a category, the filter would just reproduce the
+    # full list, so it isn't rendered — the block still lists both files.
+    files = [("empty.csv", b""), ("people.csv", b"name,city\nA,B\n")]  # both unsupported
+    resp = client.post(
+        "/batch",
+        data={"files": [(io.BytesIO(content), name) for name, content in files]},
+        content_type="multipart/form-data",
+    )
+    html = resp.get_data(as_text=True)
+    assert 'class="flash-errors"' in html
+    assert 'class="flash-filter"' not in html   # no category filter for one category
+    assert "empty.csv" in html and "people.csv" in html
+    # The block is collapsible and dismissable.
+    assert "flash-collapse" in html and "flash-dismiss" in html

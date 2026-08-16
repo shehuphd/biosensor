@@ -13,14 +13,24 @@
   </div>
 
   <div class="topbar-actions">
-    <button id="action-upload" class="icon-btn{% if not stats.files %} primary{% endif %}" title="Load a file" onclick="document.getElementById('single-file-input').click()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-    </button>
-    <button class="icon-btn" title="Load a folder" onclick="document.getElementById('batch-file-input').click()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
-    </button>
+    <div class="add-menu" id="add-menu">
+      <button id="action-add" class="icon-btn primary" title="Add data"
+              aria-haspopup="true" aria-expanded="false" onclick="toggleAddMenu(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      </button>
+      <div class="add-menu-list" role="menu" hidden>
+        <button type="button" class="add-menu-item" role="menuitem" onclick="chooseData('files-file-input')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>Choose files…</span>
+        </button>
+        <button type="button" class="add-menu-item" role="menuitem" onclick="chooseData('folder-file-input')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
+          <span>Choose a folder…</span>
+        </button>
+      </div>
+    </div>
     <div class="topbar-sep"></div>
-    <a id="action-export" class="icon-btn{% if stats.files %} primary{% endif %}" title="Export batch CSV" href="/dataframe">
+    <a id="action-export" class="icon-btn" title="Export batch CSV" href="/dataframe">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
     </a>
     <div class="topbar-sep"></div>
@@ -39,15 +49,20 @@
 </div>
 
 <div class="upload-forms">
-  <form id="single-form" hx-post="/parse" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
+  {# One button, two pickers: the browser can't offer files and a folder in the
+     same OS dialog (webkitdirectory forces folder-only mode), so the Add-data
+     menu triggers whichever hidden input the user picked. Both post to /batch,
+     which stores one file, many files, or a whole folder the same way. #}
+  <form id="files-form" hx-post="/batch" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
         hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
     <input type="hidden" name="view" value="{{ active_view }}" />
-    <input id="single-file-input" type="file" name="file" onchange="document.getElementById('single-form').requestSubmit()" />
+    <input id="files-file-input" type="file" name="files" multiple
+           onchange="document.getElementById('files-form').requestSubmit()" />
   </form>
-  <form id="batch-form" hx-post="/batch" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
+  <form id="folder-form" hx-post="/batch" hx-target="#{{ upload_target }}" hx-swap="innerHTML"
         hx-encoding="multipart/form-data" hx-on::after-request="this.reset()">
     <input type="hidden" name="view" value="{{ active_view }}" />
-    <input id="batch-file-input" type="file" name="files" multiple webkitdirectory directory
-           onchange="document.getElementById('batch-form').requestSubmit()" />
+    <input id="folder-file-input" type="file" name="files" multiple webkitdirectory directory
+           onchange="document.getElementById('folder-form').requestSubmit()" />
   </form>
 </div>

@@ -1,4 +1,50 @@
 <script>
+  // Snapshot the chart: download a PNG and, where the browser allows it, also
+  // copy it to the clipboard so it can be pasted straight into a doc or chat.
+  async function snapshotPlot(gd) {
+    let url;
+    try {
+      url = await Plotly.toImage(gd, {format: 'png', scale: 2});
+    } catch (e) {
+      console.error('snapshot failed', e);
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'biosensor-curve.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const blob = await (await fetch(url)).blob();
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+      }
+    } catch (e) {
+      // Clipboard can be blocked (permissions, focus); the download still ran.
+    }
+  }
+
+  // One config for every chart: a snapshot button that also copies to the
+  // clipboard, zoom/pan controls, no Plotly logo, and no box/lasso select
+  // (they select points but nothing here acts on a selection).
+  function plotConfig() {
+    return {
+      responsive: true,
+      displaylogo: false,
+      displayModeBar: true,   // always visible, not only on hover
+      modeBarButtons: [[       // one group so the buttons stay on a single row
+        {
+          name: 'Save & copy image',
+          title: 'Save PNG and copy to clipboard',
+          icon: Plotly.Icons.camera,
+          click: snapshotPlot,
+        },
+        'zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d',
+      ]],
+    };
+  }
+
   function applyTheme(theme) {
     const shell = document.getElementById('app-shell');
     shell.classList.toggle('dark', theme === 'dark');
@@ -43,7 +89,7 @@
     if (!target || target.offsetParent === null || el.dataset.rendered === '1') return;
     try {
       const payload = JSON.parse(el.textContent);
-      Plotly.newPlot(target, payload.data, payload.layout, {responsive: true});
+      Plotly.newPlot(target, payload.data, payload.layout, plotConfig());
       el.dataset.rendered = '1';
     } catch (e) {
       console.error('plot render failed', e);
@@ -55,6 +101,8 @@
     // stale/unbounded height and render huge.
     window.requestAnimationFrame(() => {
       document.querySelectorAll('.plot-data-json').forEach(renderPlot);
+      // The Curve view is the default tab, so draw its baseline overlay now.
+      renderCurveDefault();
     });
   }
   // Render any not-yet-drawn plots inside a container that just became visible
@@ -62,26 +110,182 @@
   function renderPlotsIn(container) {
     if (!container) return;
     container.querySelectorAll('.plot-data-json').forEach(renderPlot);
+    // The Curve container holds the method-switched baseline overlay.
+    if (container.querySelector('#plot-div')) renderCurveDefault();
     // The Overlay container also holds the method-switched calibration inset.
     if (container.querySelector('#calibration-div')) renderCalibrationDefault();
     window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   }
   document.body.addEventListener('htmx:afterSwap', renderVisiblePlots);
 
-  // The primary (accent) toolbar action follows what's actionable: with no
-  // files loaded there's nothing to export, so Upload carries the accent;
-  // once files exist it moves to Export. #topbar-stats is OOB-swapped on every
-  // load/remove, so re-syncing on afterSwap keeps this live.
+  // Adding data is the primary action, so the Add-data button always carries
+  // the accent; export stays neutral. #topbar-stats is OOB-swapped on every
+  // load/remove, so re-asserting on afterSwap keeps the accent from drifting.
   function syncPrimaryAction() {
-    const el = document.getElementById('stat-files-value');
-    const count = el ? (parseInt(el.textContent, 10) || 0) : 0;
-    const upload = document.getElementById('action-upload');
+    const add = document.getElementById('action-add');
     const exportBtn = document.getElementById('action-export');
-    if (upload) upload.classList.toggle('primary', count === 0);
-    if (exportBtn) exportBtn.classList.toggle('primary', count > 0);
+    if (add) add.classList.add('primary');
+    if (exportBtn) exportBtn.classList.remove('primary');
   }
   syncPrimaryAction();
   document.body.addEventListener('htmx:afterSwap', syncPrimaryAction);
+
+  // One "Add data" button opens a small menu: Choose files… (one or many files)
+  // or Choose a folder…. The browser can't offer both in a single OS dialog, so
+  // the menu picks which hidden input to open; both feed the same /batch upload.
+  function toggleAddMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('add-menu');
+    const open = menu.classList.toggle('open');
+    menu.querySelector('.add-menu-list').hidden = !open;
+    menu.querySelector('#action-add').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function closeAddMenu() {
+    const menu = document.getElementById('add-menu');
+    if (!menu || !menu.classList.contains('open')) return;
+    menu.classList.remove('open');
+    menu.querySelector('.add-menu-list').hidden = true;
+    menu.querySelector('#action-add').setAttribute('aria-expanded', 'false');
+  }
+  function chooseData(inputId) {
+    closeAddMenu();
+    document.getElementById(inputId).click();
+  }
+  document.addEventListener('click', closeAddMenu);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAddMenu(); });
+
+  // Drag files or a folder anywhere onto the window to load them — the same as
+  // the Add-data menu. A dropped folder is walked recursively; every file found
+  // is handed to the hidden batch input so the existing htmx upload path runs.
+  (function setupDragDrop() {
+    const shell = document.getElementById('app-shell');
+    if (!shell) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'drop-overlay';
+    overlay.className = 'drop-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML =
+      '<div class="drop-overlay-card">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>' +
+      '<span class="drop-overlay-title">Drop files or a folder to load</span>' +
+      '<span class="drop-overlay-sub">Biosensor reads each one and sorts out what to show.</span>' +
+      '</div>';
+    shell.appendChild(overlay);
+
+    // dragenter/dragleave fire for every child crossed, so count depth and only
+    // hide once the drag has truly left the window.
+    let depth = 0;
+    const carriesFiles = e => Array.from(e.dataTransfer && e.dataTransfer.types || []).includes('Files');
+    const hide = () => { depth = 0; overlay.hidden = true; };
+
+    window.addEventListener('dragenter', e => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      overlay.hidden = false;
+    });
+    window.addEventListener('dragover', e => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', e => {
+      if (!carriesFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) hide();
+    });
+    window.addEventListener('drop', async e => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      hide();
+      // webkitGetAsEntry must be read synchronously — the item list empties once
+      // the handler yields — so grab the entries before any await.
+      const entries = [];
+      const items = e.dataTransfer.items;
+      if (items && items.length && items[0].webkitGetAsEntry) {
+        for (const it of items) {
+          const entry = it.webkitGetAsEntry();
+          if (entry) entries.push(entry);
+        }
+      }
+      const files = entries.length
+        ? await collectDroppedEntries(entries)
+        : Array.from(e.dataTransfer.files || []);
+      if (files.length) submitDroppedFiles(files);
+    });
+  })();
+
+  function collectDroppedEntries(entries) {
+    // Flatten a mix of file and directory entries into one File list.
+    const out = [];
+    async function walk(entry) {
+      if (entry.isFile) {
+        out.push(await new Promise((res, rej) => entry.file(res, rej)));
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        // readEntries yields at most 100 per call, so loop until it's drained.
+        let batch;
+        do {
+          batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+          for (const child of batch) await walk(child);
+        } while (batch.length);
+      }
+    }
+    return (async () => {
+      for (const entry of entries) await walk(entry);
+      return out;
+    })();
+  }
+
+  function submitDroppedFiles(files) {
+    // Reuse the hidden batch form so the drop path is identical to the menu.
+    const input = document.getElementById('files-file-input');
+    const form = document.getElementById('files-form');
+    if (!input || !form) return;
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+    form.requestSubmit();
+  }
+
+  // Route every hx-confirm through an in-app dialog instead of the browser's
+  // bare window.confirm, so a destructive action asks inside the app, in the
+  // app's own styling. htmx fires htmx:confirm with the question and a callback
+  // to proceed; we cancel htmx's default prompt and drive our own.
+  (function setupConfirmDialog() {
+    const shell = document.getElementById('app-shell');
+    if (!shell) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop confirm-backdrop';
+    backdrop.hidden = true;
+    backdrop.innerHTML =
+      '<div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-question">' +
+      '<p class="confirm-question" id="confirm-question"></p>' +
+      '<div class="confirm-actions">' +
+      '<button type="button" class="btn btn-ghost btn-md confirm-cancel">Cancel</button>' +
+      '<button type="button" class="btn btn-primary btn-md confirm-ok">Confirm</button>' +
+      '</div></div>';
+    shell.appendChild(backdrop);
+    const questionEl = backdrop.querySelector('.confirm-question');
+    const okBtn = backdrop.querySelector('.confirm-ok');
+    const cancelBtn = backdrop.querySelector('.confirm-cancel');
+    let onConfirm = null;
+
+    function close() { backdrop.hidden = true; onConfirm = null; }
+    okBtn.addEventListener('click', () => { const cb = onConfirm; close(); if (cb) cb(); });
+    cancelBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+    document.addEventListener('keydown', e => { if (!backdrop.hidden && e.key === 'Escape') close(); });
+
+    document.body.addEventListener('htmx:confirm', function(e) {
+      if (!e.detail.question) return;   // element has no hx-confirm; let it run
+      e.preventDefault();               // stop htmx's own window.confirm
+      questionEl.textContent = e.detail.question;
+      onConfirm = () => e.detail.issueRequest(true);  // true = skip re-confirm
+      backdrop.hidden = false;
+      okBtn.focus();
+    });
+  })();
 
   // The calibration inset carries one embedded spec per peak-current method;
   // the dropdown switches which one is drawn, client-side, so the choice is
@@ -93,7 +297,7 @@
     try {
       const payload = JSON.parse(script.textContent);
       if (!payload) return;
-      Plotly.newPlot(div, payload.data, payload.layout, {responsive: true});
+      Plotly.newPlot(div, payload.data, payload.layout, plotConfig());
     } catch (e) {
       console.error('calibration render failed', e);
     }
@@ -101,6 +305,26 @@
   function renderCalibrationDefault() {
     const sel = document.querySelector('.calib-method');
     if (sel) renderCalibration(sel.value);
+  }
+
+  // The Curve view embeds one figure per peak method (peak marked, baseline
+  // drawn); the dropdown switches which is shown, client-side. Skips drawing
+  // while #plot-div is hidden (a Plotly plot drawn into a display:none box
+  // measures 0 and renders mis-sized) — renderPlotsIn redraws it on reveal.
+  function renderCurve(method) {
+    const div = document.getElementById('plot-div');
+    const script = document.querySelector(`.curve-data-json[data-method="${method}"]`);
+    if (!div || !script || div.offsetParent === null) return;
+    try {
+      const payload = JSON.parse(script.textContent);
+      Plotly.newPlot(div, payload.data, payload.layout, plotConfig());
+    } catch (e) {
+      console.error('curve render failed', e);
+    }
+  }
+  function renderCurveDefault() {
+    const sel = document.querySelector('.curve-method');
+    if (sel) renderCurve(sel.value);
   }
 
   function filterDfRows(input) {
@@ -138,6 +362,20 @@
     wrap.querySelectorAll('.flash-error-item').forEach(item => {
       item.hidden = !(cat === 'all' || item.dataset.cat === cat);
     });
+  }
+
+  function toggleFlashErrors(btn) {
+    const wrap = btn.closest('.flash-errors');
+    if (!wrap) return;
+    const collapsed = wrap.classList.toggle('collapsed');
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    btn.setAttribute('title', collapsed ? 'Expand' : 'Collapse');
+    btn.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
+  }
+
+  function dismissFlashErrors(btn) {
+    const wrap = btn.closest('.flash-errors');
+    if (wrap) wrap.remove();
   }
 
   function openMappingModal(fileId) {

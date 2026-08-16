@@ -61,12 +61,64 @@ kbd{font-family:var(--font-mono)}
 .icon-btn.primary:hover{background:var(--accent-primary-hover)}
 .icon-btn svg{width:18px;height:18px}
 
+/* Add-data button + its files/folder menu */
+.add-menu{position:relative}
+.add-menu-list{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:190px;
+  background:var(--surface-overlay);border:1px solid var(--border-default);
+  border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:var(--space-2);
+  display:flex;flex-direction:column;gap:2px;
+}
+.add-menu-list[hidden]{display:none}
+.add-menu-item{
+  display:flex;align-items:center;gap:var(--space-3);width:100%;
+  padding:var(--space-3) var(--space-3);border:none;background:transparent;border-radius:var(--radius-sm);
+  color:var(--text-primary);font-family:var(--font-sans);font-size:var(--text-sm);text-align:left;
+}
+.add-menu-item:hover{background:var(--surface-sunken)}
+.add-menu-item svg{width:16px;height:16px;color:var(--text-tertiary);flex-shrink:0}
+
 /* ---------- settings modal ---------- */
 .overlay{
   position:absolute;inset:0;background:oklch(20% 0.01 150 / 0.4);z-index:20;
   display:flex;align-items:center;justify-content:center;
 }
 .overlay[hidden]{display:none}
+
+/* Drag files or a folder anywhere onto the window; this covers the shell while
+   a drag is in progress and disappears on drop or when the cursor leaves. */
+.drop-overlay{
+  position:absolute;inset:0;z-index:40;
+  display:flex;align-items:center;justify-content:center;
+  background:oklch(20% 0.01 150 / 0.45);
+  border:2px dashed var(--accent-primary);border-radius:var(--radius-lg);
+}
+.drop-overlay[hidden]{display:none}
+.drop-overlay-card{
+  display:flex;flex-direction:column;align-items:center;gap:var(--space-3);
+  padding:var(--space-8) var(--space-9);pointer-events:none;
+  background:var(--surface-overlay);border:1px solid var(--border-default);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);text-align:center;
+}
+.drop-overlay-card svg{width:32px;height:32px;color:var(--accent-primary)}
+.drop-overlay-title{font-size:var(--text-md);font-weight:var(--weight-semibold);color:var(--text-primary)}
+.drop-overlay-sub{font-size:var(--text-sm);color:var(--text-secondary)}
+
+/* Plotly modebar: pin it to the top-left — the top-right corner already holds
+   the legend and the peak annotation. */
+.js-plotly-plot .modebar{left:2px;right:auto!important}
+.js-plotly-plot .modebar-group{float:left}
+/* Plotly modebar: mark the active tool (zoom/pan) in light green. */
+.js-plotly-plot .modebar-btn.active,
+.js-plotly-plot .modebar-btn.active:hover{background:var(--state-success-bg);border-radius:var(--radius-sm)}
+.js-plotly-plot .modebar-btn.active svg path{fill:var(--accent-primary)!important}
+/* Plotly's own button tooltip toggles display, so it can't be delayed. Keep it
+   present but transparent and fade it in after ~0.5s, so it shows on a
+   deliberate hover, not every time the cursor passes over a button. */
+.js-plotly-plot .modebar-btn[data-title]:before,
+.js-plotly-plot .modebar-btn[data-title]:after{display:block!important;opacity:0!important}
+.js-plotly-plot .modebar-btn[data-title]:hover:before,
+.js-plotly-plot .modebar-btn[data-title]:hover:after{opacity:1!important;transition:opacity 0s 0.5s!important}
 .settings-modal{
   background:var(--surface-overlay);border:1px solid var(--border-default);border-radius:var(--radius-lg);
   box-shadow:var(--shadow-lg);width:340px;font-family:var(--font-sans);
@@ -181,8 +233,8 @@ kbd{font-family:var(--font-mono)}
 .calibration-block{display:flex;flex-direction:column;margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)}
 #calibration-div{height:300px}
 .calib-method-label{display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text-tertiary)}
-.calib-method{font-family:var(--font-mono);font-size:var(--text-xs);padding:3px 6px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-app);color:var(--text-primary)}
-.calib-method:focus{outline:2px solid var(--focus-ring);outline-offset:-1px}
+.calib-method,.curve-method{font-family:var(--font-mono);font-size:var(--text-xs);padding:3px 6px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-app);color:var(--text-primary)}
+.calib-method:focus,.curve-method:focus{outline:2px solid var(--focus-ring);outline-offset:-1px}
 .provenance-note{margin:var(--space-3) 0 2px;font-size:var(--text-xs);color:var(--text-tertiary);line-height:1.5}
 
 .df-header{gap:var(--space-4)}
@@ -223,6 +275,12 @@ kbd{font-family:var(--font-mono)}
 .link-btn{background:none;border:none;color:var(--text-secondary);font-size:12.5px;cursor:pointer;padding:0}
 .link-btn:hover{text-decoration:underline}
 .link-btn-danger{color:var(--state-danger-fg)}
+
+/* A QC button whose value is the file's current status is already applied,
+   so it greys out and stops responding; the other two stay live to revert it. */
+.btn:disabled{background:var(--surface-sunken);color:var(--text-tertiary);cursor:default;pointer-events:none}
+.link-btn:disabled{color:var(--text-tertiary);cursor:default;pointer-events:none}
+.link-btn:disabled:hover{text-decoration:none}
 
 /* ---------- record pane ---------- */
 .record-block{padding:13px var(--space-5);border-bottom:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:var(--space-3)}
@@ -270,7 +328,13 @@ kbd{font-family:var(--font-mono)}
 .flash-errors{margin:var(--space-4) var(--space-5);border:1px solid var(--state-danger-border);border-radius:var(--radius-md);background:var(--state-danger-bg);overflow:hidden}
 .flash-errors-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--state-danger-border)}
 .flash-errors-title{font-weight:var(--weight-semibold);color:var(--state-danger-fg);font-size:var(--text-sm)}
-.flash-filter{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-left:auto}
+.flash-collapse{flex:none;display:flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:none;background:transparent;color:var(--state-danger-fg);border-radius:var(--radius-sm);cursor:pointer}
+.flash-collapse svg{width:16px;height:16px;transition:transform 0.15s}
+.flash-errors.collapsed .flash-collapse svg{transform:rotate(-90deg)}
+.flash-errors.collapsed .flash-errors-list,.flash-errors.collapsed .flash-filter{display:none}
+.flash-dismiss{flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:none;background:transparent;color:var(--state-danger-fg);border-radius:var(--radius-sm);font-size:18px;line-height:1;cursor:pointer}
+.flash-collapse:hover,.flash-dismiss:hover{background:var(--state-danger-border)}
+.flash-filter{display:flex;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-3) var(--space-4) 0}
 .flash-chip{font-family:var(--font-mono);font-size:var(--text-xs);padding:2px var(--space-3);border:1px solid var(--border-default);border-radius:var(--radius-full);background:var(--surface-card);color:var(--text-secondary);cursor:pointer}
 .flash-chip.is-active{background:var(--text-primary);color:var(--surface-card);border-color:var(--text-primary)}
 .flash-errors-list{list-style:none;margin:0;padding:var(--space-2) 0;max-height:220px;overflow-y:auto}
@@ -289,6 +353,13 @@ kbd{font-family:var(--font-mono)}
 
 /* ---------- upload controls (hidden native inputs triggered by icon buttons) ---------- */
 .upload-forms{display:none}
+
+/* In-app confirm dialog (replaces the browser's bare window.confirm). */
+.confirm-backdrop{z-index:60}
+.confirm-backdrop[hidden]{display:none}
+.confirm-dialog{background:var(--surface-card);border:1px solid var(--border-default);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:400px;max-width:100%;padding:var(--space-6);font-family:var(--font-sans);color:var(--text-primary)}
+.confirm-question{font-size:var(--text-sm);line-height:1.5;margin:0 0 var(--space-5)}
+.confirm-actions{display:flex;justify-content:flex-end;gap:var(--space-3)}
 
 /* ---------- column-mapping correction modal ---------- */
 .modal-backdrop{position:fixed;inset:0;background:oklch(20% 0.01 150 / 0.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:var(--space-6)}
